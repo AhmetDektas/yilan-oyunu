@@ -4,14 +4,32 @@
   <meta charset="UTF-8">
   <title>Snake Oyunu</title>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     body {
-      background: #650404;
+      background: #000;
       color: #0f0;
       font-family: monospace;
       display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #scoreboard {
+      width: 30%;
+      background: #000;
+      padding: 20px;
+      border-right: 1px solid #0f0;
+      overflow-y: auto;
+    }
+    #gameArea {
+      flex: 1;
+      display: flex;
       flex-direction: column;
       align-items: center;
-      margin: 0;
+      justify-content: center;
     }
     canvas {
       background: #111;
@@ -21,6 +39,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
+      margin-top: 10px;
     }
     td, th {
       border: 1px solid #0f0;
@@ -30,59 +49,53 @@
     input, button {
       padding: 5px;
       margin: 5px;
+      font-family: monospace;
     }
     h1, h2 {
-      margin: 5px;
+      margin-bottom: 10px;
     }
   </style>
 </head>
 <body>
-  <h1>🐍 Snake Oyunu</h1>
-  <div id="startArea">
-    <input type="text" id="username" placeholder="İsmini yaz">
-    <button onclick="startGame()">Başlat</button>
+
+  <!-- SOLDA SCOREBOARD -->
+  <div id="scoreboard">
+    <h2>🏆 High Score Tablosu</h2>
+    <table id="highScores">
+      <tr><th>Oyuncu</th><th>Skor</th><th>Durum</th></tr>
+    </table>
   </div>
 
-  <canvas id="game" width="400" height="400" style="display:none;"></canvas>
-
-  <div id="scoreboard" style="width: 30%; padding: 10px;">
-      <h2>🏆 High Score Tablosu</h2>
-      <table id="highScores">
-        <tr><th>Oyuncu</th><th>Skor</th><th>Durum</th></tr>
-      </table>
+  <!-- SAĞDA OYUN ALANI -->
+  <div id="gameArea">
+    <h1>🐍 Snake Oyunu</h1>
+    <div id="startArea">
+      <input type="text" id="username" placeholder="İsmini yaz">
+      <button onclick="startGame()">Başlat</button>
     </div>
-
-    <!-- SAĞDA OYUN -->
-    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-      <h1>🐍 Snake Oyunu</h1>
-      <div id="startArea">
-        <input type="text" id="username" placeholder="İsmini yaz">
-        <button onclick="startGame()">Başlat</button>
-      </div>
-      <canvas id="game" width="400" height="400" style="display:none;"></canvas>
-    </div>
+    <canvas id="game" width="400" height="400" style="display:none;"></canvas>
   </div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
   <script>
-      const firebaseConfig = {
-        apiKey: "AIzaSyDnyOc4ujnhiEJBhhkIHSQOP-amJG8nxBE",
-        authDomain: "yilanoyunu-65f7e.firebaseapp.com",
-        databaseURL: "https://yilanoyunu-65f7e-default-rtdb.europe-west1.firebasedatabase.app",
-        projectId: "yilanoyunu-65f7e",
-        storageBucket: "yilanoyunu-65f7e.firebasestorage.app",
-        messagingSenderId: "244962784546",
-        appId: "1:244962784546:web:272c63d3cb23829d99e17b",
-        measurementId: "G-1JRC0DHH57"
-      };
+  const firebaseConfig = {
+      apiKey: "AIzaSyDnyOc4ujnhiEJBhhkIHSQOP-amJG8nxBE",
+      authDomain: "yilanoyunu-65f7e.firebaseapp.com",
+      databaseURL: "https://yilanoyunu-65f7e-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "yilanoyunu-65f7e",
+      storageBucket: "yilanoyunu-65f7e.firebasestorage.app",
+      messagingSenderId: "244962784546",
+      appId: "1:244962784546:web:272c63d3cb23829d99e17b",
+      measurementId: "G-1JRC0DHH57"
+    };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
   </script>
 
-  <!-- Oyun Kodu -->
+  <!-- Oyun Scripti -->
   <script>
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
@@ -110,6 +123,7 @@
       document.getElementById("startArea").style.display = "none";
       canvas.style.display = "block";
       resetGame();
+      updateScoreTable(username); // kendi adını online olarak gönder
       gameLoop();
     }
 
@@ -128,32 +142,37 @@
       db.ref("scores").push({ name, score });
     }
 
-    function updateScoreTable() {
+    function updateScoreTable(currentPlayerName = "") {
       db.ref("scores").on("value", (snapshot) => {
-        const data = [];
+        const scoresMap = new Map();
+
         snapshot.forEach(child => {
-          data.push(child.val());
+          const val = child.val();
+          if (!scoresMap.has(val.name) || val.score > scoresMap.get(val.name)) {
+            scoresMap.set(val.name, val.score);
+          }
         });
-        data.sort((a, b) => b.score - a.score);
-        const top10 = data.slice(0, 10);
-    
-        highScoresTable.innerHTML = "<tr><th>Oyuncu</th><th>Skor</th></tr>";
-        top10.forEach(row => {
-          highScoresTable.innerHTML += `<tr><td>${row.name}</td><td>${row.score}</td></tr>`;
+
+        const sortedScores = Array.from(scoresMap.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 25);
+
+        highScoresTable.innerHTML = "<tr><th>Oyuncu</th><th>Skor</th><th>Durum</th></tr>";
+        sortedScores.forEach(([name, score]) => {
+          const online = (name === currentPlayerName) ? "🟢 online" : "";
+          highScoresTable.innerHTML += `<tr><td>${name}</td><td>${score}</td><td>${online}</td></tr>`;
         });
       });
     }
 
-
     function gameLoop() {
       const head = { x: snake[0].x + dx, y: snake[0].y + dy };
 
-      // çarpışma kontrolü
       if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount ||
           snake.some(p => p.x === head.x && p.y === head.y)) {
         alert("Oyun Bitti! Skor: " + score);
         saveScore(username, score);
-        updateScoreTable();
+        updateScoreTable(username);
         document.getElementById("startArea").style.display = "block";
         canvas.style.display = "none";
         return;
@@ -171,7 +190,6 @@
         snake.pop();
       }
 
-      // çizim
       ctx.fillStyle = "#111";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -184,7 +202,7 @@
       setTimeout(gameLoop, 100);
     }
 
-    updateScoreTable(); // Sayfa yüklenince göster
+    updateScoreTable();
   </script>
 </body>
 </html>

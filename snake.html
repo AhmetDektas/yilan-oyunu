@@ -118,20 +118,21 @@
     }
 
     function updateScoreTable() {
-      db.ref("scores").once("value", (snapshot) => {
+      db.ref("scores").on("value", (snapshot) => {
         const data = [];
         snapshot.forEach(child => {
           data.push(child.val());
         });
         data.sort((a, b) => b.score - a.score);
         const top10 = data.slice(0, 10);
-
+    
         highScoresTable.innerHTML = "<tr><th>Oyuncu</th><th>Skor</th></tr>";
         top10.forEach(row => {
           highScoresTable.innerHTML += `<tr><td>${row.name}</td><td>${row.score}</td></tr>`;
         });
       });
     }
+
 
     function gameLoop() {
       const head = { x: snake[0].x + dx, y: snake[0].y + dy };

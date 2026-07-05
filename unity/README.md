@@ -32,6 +32,11 @@ birebir eşleşiyor, olduğu gibi sürükleyip bırakabilirsin).
 `GameState.cs`, `RoomUnit.cs`, `GuestTypes.cs`, `StaffSystem.cs`,
 `AmenitySystem.cs`, `Achievements.cs`, `GuestDocument.cs`
 
+**Misafir portresi:** `PortraitGenerator.cs` — dışarıdan hiçbir resim
+almadan, çalışma anında kodla bir yüz silüeti çizip `Sprite`'a çeviren
+yardımcı sınıf; `GuestCheckPanel.cs` bunu kimlik kontrol panelindeki
+portre için kullanır.
+
 **Oyun döngüsü:** `GameManager.cs` — tek `MonoBehaviour`, gün döngüsü +
 tüm oyuncu aksiyonları (`RepairUnit`, `AcceptBooking`, `ResolveEntryDecision`,
 `HireStaff`, `BuyAmenity`, `ExpandHotel`, `DepositWood/Meat`, `AnimalRaid`...)
@@ -197,16 +202,29 @@ GameObject'e ekle, `Content Parent`/`Room Card Prefab`'ı bağla, ve
 **`Guest Check Panel` alanına aşağıdaki paneli bağla.**
 
 **Kimlik kontrol paneli (Papers-Please):** Canvas altına, varsayılan
-kapalı bir `Panel` (`GuestCheckPanel` GameObject'i): içine misafir adı,
-tipi, "Meslek: ..." ve "Eşya: ..." metinleri için 5 `TMP_Text`, şüpheli
+kapalı bir `Panel` (`GuestCheckPanel` GameObject'i): içine bir **portre**
+için bir `Image` (kare/dikdörtgen, örn. 128x128), misafir adı, tipi,
+"Meslek: ..." ve "Eşya: ..." metinleri için 5 `TMP_Text`, şüpheli
 olduğunda görünecek küçük bir uyarı ikonu (`GameObject`, örn. kırmızı
 "⚠️"), ve **İçeri Al** / **Reddet** olmak üzere 2 `Button`.
 `GuestCheckPanel.cs`'i bu panelin köküne ekle, alanları bağla
-(`panelRoot` = panelin kendisi). Oda kartındaki "Kimliğini İncele"
-butonuna bastığında bu panel açılır; oyuncu meslek/eşya bilgisine bakıp
-karar verir — **gerçek doğru/yanlış (IsTrouble) oyuncudan gizli**, sadece
-görünür ipuçlarına (şüpheli bayrağı, meslek/eşya uyuşmazlığı) göre tahmin
-ediyorsun, tıpkı Papers Please'deki gibi.
+(`panelRoot` = panelin kendisi, `Portrait Image` = az önceki `Image`).
+Oda kartındaki "Kimliğini İncele" butonuna bastığında bu panel açılır;
+oyuncu portreye/meslek-eşya bilgisine bakıp karar verir — **gerçek
+doğru/yanlış (IsTrouble) oyuncudan gizli**, sadece görünür ipuçlarına
+(portredeki kaçamak/şaşı bakış ve gözlük gibi detaylar, şüpheli bayrağı,
+meslek/eşya uyuşmazlığı) göre tahmin ediyorsun, tıpkı Papers Please'deki
+gibi.
+
+**Portreler nereden geliyor?** Hiçbir resim/asset içe aktarmana gerek
+yok — `PortraitGenerator.cs` her misafir için küçük bir yüz silüetini
+(ten rengi + saç/şapka stili + göz şekli + bazen gözlük) tamamen kodla,
+çalışma anında bir `Texture2D`'ye çizip `Sprite`'a çeviriyor.
+Varyasyon misafirin adının hash'inden geliyor (aynı isim → hep aynı
+yüz), şüpheli olan misafirlerin gözleri ince/kaçamak çiziliyor —
+**hiçbir zaman gizli `IsTrouble` bilgisini kullanmıyor**, sadece zaten
+görünür olan ipuçlarını (isim, şüpheli bayrağı) okuyor, yoksa oyunun
+tahmin mekaniği bozulurdu.
 
 **Personel / Olanaklar / Başarım listeleri:** aynı desen — her biri için
 ayrı bir Scroll View + kart prefabı (`StaffCardUI` / `AmenityCardUI` /

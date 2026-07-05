@@ -5,14 +5,16 @@ using TMPro;
 /// <summary>
 /// "Papers, Please"-style ID check popup. RoomCardUI calls Open() when
 /// its room has a pending booking instead of accepting directly; the
-/// player reviews the claimed occupation/carried item (and the visible
-/// suspicious flag, if any) and taps İçeri Al / Reddet. The consequence
-/// (including the hidden IsTrouble reveal) is resolved by
+/// player reviews the claimed occupation/carried item, the procedurally
+/// drawn portrait (see PortraitGenerator — no art assets needed) and the
+/// visible suspicious flag, if any, then taps İçeri Al / Reddet. The
+/// consequence (including the hidden IsTrouble reveal) is resolved by
 /// GameManager.ResolveEntryDecision.
 /// </summary>
 public class GuestCheckPanel : MonoBehaviour
 {
     public GameObject panelRoot;
+    public Image portraitImage;
     public TMP_Text nameText;
     public TMP_Text typeText;
     public TMP_Text occupationText;
@@ -40,6 +42,7 @@ public class GuestCheckPanel : MonoBehaviour
         itemText.text = "Eşya: " + doc.CarriedItem;
         rentText.text = $"Bütçe ≤ {booking.maxRent:N0}₺  ·  İstenen {u.rent:N0}₺";
         if (suspiciousFlagIcon != null) suspiciousFlagIcon.SetActive(doc.IsSuspicious);
+        if (portraitImage != null) portraitImage.sprite = PortraitGenerator.Generate(booking.name, doc.IsSuspicious);
 
         allowButton.interactable = u.rent <= booking.maxRent;
         allowButton.onClick.RemoveAllListeners();

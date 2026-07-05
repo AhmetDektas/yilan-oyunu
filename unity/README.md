@@ -36,7 +36,7 @@ burada.
 
 **Canvas UI:** `HUDBinder.cs`, `RoomListUI.cs`, `StaffListUI.cs`,
 `AmenityListUI.cs`, `AchievementListUI.cs`, `GuestCheckPanel.cs`,
-`TabController.cs`
+`GameOverPanel.cs`, `TabController.cs`
 
 TextMeshPro kullanıyorlar — Unity ilk `TMP_Text` referansı gördüğünde
 "Import TMP Essentials" isteyecek, kabul et.
@@ -133,6 +133,14 @@ ayrı bir Scroll View + kart prefabı (`StaffCardUI` / `AmenityCardUI` /
 Başarım). `TabController.cs` ekle, `Panels` dizisine 5 ana paneli aynı
 sırayla sürükle, her butonun `OnClick`'ine `ShowTab(i)` bağla (`i`:
 0=Harita, 1=Otel, 2=Personel, 3=Olanaklar, 4=Başarım).
+
+**İflas / Oyun Bitti paneli:** Canvas altına, varsayılan kapalı bir
+`Panel` (örn. `GameOverPanel` GameObject'i): bir `TMP_Text` (sonuç mesajı)
++ bir **Yeniden Başla** `Button`. `GameOverPanel.cs`'i bu panelin köküne
+ekle, `panelRoot`/`messageText`/`restartButton` alanlarını bağla. Para 3
+gün üst üste eksiye düşerse (`GameManager.IsGameOver` true olur, gün
+döngüsü durur) bu panel otomatik açılır; **Yeniden Başla** butonu
+`GameManager.Restart()`'ı çağırıp ekonomiyi sıfırdan kurar.
 
 ## Kimlik kontrolü nasıl dengelendi
 

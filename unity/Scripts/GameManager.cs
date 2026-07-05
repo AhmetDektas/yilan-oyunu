@@ -28,9 +28,11 @@ public class GameManager : MonoBehaviour
     public double troubleStrikeChancePerDay = 0.25;
 
     public GameState State { get; private set; }
+    public bool IsGameOver { get; private set; }
 
     public event Action OnDayProcessed;
     public event Action<string> OnLog;
+    public event Action OnGameOver;
 
     readonly System.Random rng = new System.Random();
     static readonly string[] GuestNames = {
@@ -46,13 +48,22 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
+        if (IsGameOver) return;
+
         float dayMs = dayDurationSeconds / Mathf.Max(1, State.speed);
         State.dayProgress += Time.deltaTime / dayMs;
-        while (State.dayProgress >= 1f)
+        while (State.dayProgress >= 1f && !IsGameOver)
         {
             State.dayProgress -= 1f;
             ProcessDay();
         }
+    }
+
+    /// <summary>Resets the economy and clears the game-over state. Call from a restart button.</summary>
+    public void Restart()
+    {
+        IsGameOver = false;
+        State = CreateFreshState();
     }
 
     GameState CreateFreshState()
@@ -67,6 +78,7 @@ public class GameManager : MonoBehaviour
 
     public void ForceCompleteDay()
     {
+        if (IsGameOver) return;
         State.dayProgress = 1f;
         ProcessDay();
     }
@@ -150,6 +162,15 @@ public class GameManager : MonoBehaviour
         State.day++;
         CheckAchievements();
         OnDayProcessed?.Invoke();
+
+        if (State.badMoneyStreak >= 3) TriggerGameOver();
+    }
+
+    void TriggerGameOver()
+    {
+        IsGameOver = true;
+        Log($"{State.day} gün yönettin. Otel iflas etti ve devretmek zorunda kaldın.");
+        OnGameOver?.Invoke();
     }
 
     void TriggerIssue(RoomUnit u)

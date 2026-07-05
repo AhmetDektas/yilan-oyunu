@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Apartman Yöneticisi</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    background: #1b1f27;
+    color: #eee;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overscroll-behavior: none;
+  }
+  #app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* Top bar */
+  #topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; background: #14171e; position: sticky; top: 0; z-index: 5;
+    border-bottom: 1px solid #2a2f3a;
+  }
+  #topbar .stat { text-align: center; font-size: 13px; color: #9aa4b2; }
+  #topbar .stat b { display: block; font-size: 16px; color: #fff; }
+  #buildingName { font-weight: 700; font-size: 15px; }
+
+  /* Unit grid */
+  #units {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    padding: 12px; flex: 1;
+  }
+  .unit {
+    background: #232833; border-radius: 12px; padding: 10px;
+    border: 1px solid #303645; position: relative; cursor: pointer;
+    transition: transform .1s;
+  }
+  .unit:active { transform: scale(0.97); }
+  .unit.vacant { border-style: dashed; opacity: 0.85; }
+  .unit.issue { border-color: #d9534f; box-shadow: 0 0 0 1px #d9534f inset; }
+  .unit .no { font-size: 12px; color: #7c8698; }
+  .unit .tenant { font-weight: 600; font-size: 14px; margin: 2px 0; }
+  .unit .rent { font-size: 12px; color: #f2c14e; }
+  .unit .bar { height: 5px; border-radius: 3px; background: #12151b; margin-top: 6px; overflow: hidden; }
+  .unit .bar > div { height: 100%; background: #4caf7d; }
+  .unit .badge {
+    position: absolute; top: 8px; right: 8px; font-size: 14px;
+  }
+
+  /* Log feed */
+  #log {
+    padding: 8px 14px; font-size: 12px; color: #9aa4b2;
+    max-height: 90px; overflow-y: auto; background: #14171e;
+    border-top: 1px solid #2a2f3a;
+  }
+  #log div { margin: 2px 0; }
+
+  /* End day button */
+  #endDayBar { padding: 10px 14px 16px; background: #14171e; }
+  #endDayBtn {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 700;
+    background: #4c7cf2; color: #fff; border: none; border-radius: 12px;
+  }
+  #endDayBtn:active { background: #3a63c9; }
+
+  /* Modal */
+  #overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    display: none; align-items: flex-end; justify-content: center; z-index: 20;
+  }
+  #overlay.show { display: flex; }
+  #modal {
+    background: #1f242e; width: 100%; max-width: 480px; border-radius: 16px 16px 0 0;
+    padding: 18px; max-height: 80vh; overflow-y: auto;
+  }
+  #modal h3 { margin: 0 0 6px; }
+  #modal .row { display: flex; justify-content: space-between; margin: 6px 0; font-size: 14px; color: #cdd3dc; }
+  #modal button {
+    width: 100%; padding: 12px; margin-top: 8px; border: none; border-radius: 10px;
+    background: #2c3240; color: #fff; font-size: 14px; font-weight: 600;
+  }
+  #modal button.primary { background: #4c7cf2; }
+  #modal button.danger { background: #d9534f; }
+  #modal button:disabled { opacity: .4; }
+  #modal .close { text-align: center; color: #7c8698; margin-top: 10px; font-size: 13px; }
+
+  #gameOver {
+    position: fixed; inset: 0; background: #0e1015; color: #eee;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 24px; z-index: 30;
+  }
+  #gameOver.show { display: flex; }
+  #gameOver h1 { font-size: 28px; }
+  #gameOver button {
+    margin-top: 20px; padding: 14px 24px; font-size: 16px; font-weight: 700;
+    background: #4c7cf2; color: #fff; border: none; border-radius: 12px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <div>
+      <div id="buildingName">🏢 Gökkuşağı Apt.</div>
+      <div style="font-size:11px;color:#7c8698;">Gün <span id="dayNo">1</span></div>
+    </div>
+    <div class="stat">💰<b id="moneyStat">0₺</b></div>
+    <div class="stat">⭐<b id="repStat">50</b></div>
+  </div>
+
+  <div id="units"></div>
+
+  <div id="log"></div>
+
+  <div id="endDayBar">
+    <button id="endDayBtn" onclick="endDay()">Günü Bitir ▶</button>
+  </div>
+</div>
+
+<div id="overlay" onclick="if(event.target===this) closeModal()">
+  <div id="modal"></div>
+</div>
+
+<div id="gameOver">
+  <h1>🏚️ İflas Ettin</h1>
+  <p id="gameOverText"></p>
+  <button onclick="restart()">Yeniden Başla</button>
+</div>
+
+<script>
+const UNIT_COUNT = 8;
+const STARTING_MONEY = 6000;
+const BASE_RENT = 3200;
+const DAILY_EXPENSE_BASE = 250;
+const TENANT_NAMES = ["Ahmet Yılmaz","Ayşe Kaya","Mehmet Demir","Fatma Şahin","Ali Çelik",
+  "Zeynep Arslan","Mustafa Doğan","Emine Aydın","Hüseyin Öztürk","Hatice Yıldız",
+  "İbrahim Kurt","Elif Aksoy","Ramazan Koç","Sultan Er","Osman Polat"];
+const ISSUE_TYPES = [
+  { key: "leak", label: "Su Kaçağı", icon: "💧", cost: 600 },
+  { key: "elevator", label: "Asansör Arızası", icon: "🛗", cost: 1200 },
+  { key: "noise", label: "Gürültü Şikayeti", icon: "🔊", cost: 200 },
+  { key: "power", label: "Elektrik Arızası", icon: "⚡", cost: 500 },
+  { key: "trash", label: "Çöp Birikmesi", icon: "🗑️", cost: 150 },
+];
+
+let state = null;
+
+function freshState() {
+  return {
+    day: 1,
+    money: STARTING_MONEY,
+    reputation: 50,
+    badMoneyStreak: 0,
+    units: Array.from({ length: UNIT_COUNT }, (_, i) => ({
+      id: i + 1,
+      rent: BASE_RENT,
+      condition: 90 + Math.floor(Math.random() * 10),
+      issue: null,
+      tenant: null,
+      applicant: null,
+    })),
+    log: ["Binaya hoş geldin! Boş daireler için kiracı bul, kirayı zamanında topla."],
+  };
+}
+
+function save() { localStorage.setItem("apt_sim_save", JSON.stringify(state)); }
+function load() {
+  const raw = localStorage.getItem("apt_sim_save");
+  return raw ? JSON.parse(raw) : null;
+}
+
+function pushLog(msg) {
+  state.log.unshift(msg);
+  state.log = state.log.slice(0, 30);
+}
+
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function render() {
+  document.getElementById("dayNo").textContent = state.day;
+  document.getElementById("moneyStat").textContent = state.money.toLocaleString("tr-TR") + "₺";
+  document.getElementById("repStat").textContent = state.reputation;
+
+  const unitsEl = document.getElementById("units");
+  unitsEl.innerHTML = "";
+  state.units.forEach(u => {
+    const div = document.createElement("div");
+    div.className = "unit" + (!u.tenant ? " vacant" : "") + (u.issue ? " issue" : "");
+    div.onclick = () => openUnit(u.id);
+    const happinessPct = u.tenant ? Math.max(0, Math.min(100, u.tenant.happiness)) : 0;
+    div.innerHTML = `
+      <div class="no">Daire ${u.id}</div>
+      <div class="tenant">${u.tenant ? u.tenant.name : (u.applicant ? "🙋 Aday var" : "BOŞ")}</div>
+      <div class="rent">${u.rent.toLocaleString("tr-TR")}₺/ay</div>
+      ${u.tenant ? `<div class="bar"><div style="width:${happinessPct}%; background:${happinessPct < 35 ? '#d9534f' : happinessPct < 65 ? '#f0ad4e' : '#4caf7d'}"></div></div>` : ""}
+      ${u.issue ? `<div class="badge" title="${u.issue.label}">${u.issue.icon}</div>` : ""}
+    `;
+    unitsEl.appendChild(div);
+  });
+
+  const logEl = document.getElementById("log");
+  logEl.innerHTML = state.log.map(m => `<div>• ${m}</div>`).join("");
+
+  save();
+}
+
+function openUnit(id) {
+  const u = state.units.find(x => x.id === id);
+  const modal = document.getElementById("modal");
+  let html = `<h3>Daire ${u.id}</h3>`;
+
+  if (u.tenant) {
+    html += `
+      <div class="row"><span>Kiracı</span><span>${u.tenant.name}</span></div>
+      <div class="row"><span>Memnuniyet</span><span>${Math.round(u.tenant.happiness)}/100</span></div>
+      <div class="row"><span>Kira</span><span>${u.rent.toLocaleString("tr-TR")}₺</span></div>
+      <div class="row"><span>Bina Durumu</span><span>${u.condition}/100</span></div>
+    `;
+    if (u.issue) {
+      html += `<div class="row"><span>Sorun</span><span>${u.issue.icon} ${u.issue.label}</span></div>`;
+      html += `<button class="primary" onclick="repairUnit(${u.id})">Tamir Et (${u.issue.cost.toLocaleString("tr-TR")}₺)</button>`;
+    }
+    html += `<button onclick="adjustRent(${u.id}, 200)">Kirayı Artır (+200₺)</button>`;
+    html += `<button onclick="adjustRent(${u.id}, -200)">Kirayı Azalt (-200₺)</button>`;
+    html += `<button class="danger" onclick="evictTenant(${u.id})">Kiracıyı Çıkar</button>`;
+  } else if (u.applicant) {
+    html += `
+      <div class="row"><span>Aday</span><span>${u.applicant.name}</span></div>
+      <div class="row"><span>Bütçesi</span><span>≤ ${u.applicant.maxRent.toLocaleString("tr-TR")}₺</span></div>
+      <div class="row"><span>Mevcut Kira</span><span>${u.rent.toLocaleString("tr-TR")}₺</span></div>
+    `;
+    html += `<button class="primary" ${u.rent > u.applicant.maxRent ? "disabled" : ""} onclick="acceptApplicant(${u.id})">Kabul Et</button>`;
+    html += `<button class="danger" onclick="rejectApplicant(${u.id})">Reddet</button>`;
+    html += `<button onclick="adjustRent(${u.id}, -200)">Kirayı Azalt (-200₺)</button>`;
+  } else {
+    html += `<div class="row"><span>Durum</span><span>Boş daire</span></div>`;
+    html += `<div class="row"><span>Listelenen Kira</span><span>${u.rent.toLocaleString("tr-TR")}₺</span></div>`;
+    html += `<button onclick="adjustRent(${u.id}, -200)">Kirayı Azalt (-200₺)</button>`;
+    html += `<button onclick="adjustRent(${u.id}, 200)">Kirayı Artır (+200₺)</button>`;
+    if (u.issue) {
+      html += `<div class="row"><span>Sorun</span><span>${u.issue.icon} ${u.issue.label}</span></div>`;
+      html += `<button class="primary" onclick="repairUnit(${u.id})">Tamir Et (${u.issue.cost.toLocaleString("tr-TR")}₺)</button>`;
+    }
+  }
+
+  html += `<div class="close" onclick="closeModal()">Kapat</div>`;
+  modal.innerHTML = html;
+  document.getElementById("overlay").classList.add("show");
+}
+
+function closeModal() {
+  document.getElementById("overlay").classList.remove("show");
+  render();
+}
+
+function repairUnit(id) {
+  const u = state.units.find(x => x.id === id);
+  if (!u.issue || state.money < u.issue.cost) return;
+  state.money -= u.issue.cost;
+  u.condition = Math.min(100, u.condition + 25);
+  if (u.tenant) u.tenant.happiness = Math.min(100, u.tenant.happiness + 15);
+  pushLog(`Daire ${id}: ${u.issue.label} giderildi.`);
+  u.issue = null;
+  openUnit(id);
+}
+
+function adjustRent(id, delta) {
+  const u = state.units.find(x => x.id === id);
+  u.rent = Math.max(500, u.rent + delta);
+  if (u.tenant) {
+    u.tenant.happiness += delta > 0 ? -8 : 4;
+  }
+  openUnit(id);
+}
+
+function evictTenant(id) {
+  const u = state.units.find(x => x.id === id);
+  pushLog(`Daire ${id}: ${u.tenant.name} çıkarıldı.`);
+  state.reputation = Math.max(0, state.reputation - 3);
+  u.tenant = null;
+  closeModal();
+}
+
+function acceptApplicant(id) {
+  const u = state.units.find(x => x.id === id);
+  if (!u.applicant || u.rent > u.applicant.maxRent) return;
+  u.tenant = { name: u.applicant.name, happiness: 70, unpaidStreak: 0 };
+  pushLog(`Daire ${id}: ${u.applicant.name} taşındı.`);
+  u.applicant = null;
+  closeModal();
+}
+
+function rejectApplicant(id) {
+  const u = state.units.find(x => x.id === id);
+  pushLog(`Daire ${id}: ${u.applicant.name} reddedildi.`);
+  u.applicant = null;
+  closeModal();
+}
+
+function endDay() {
+  let income = 0, expenses = DAILY_EXPENSE_BASE;
+  const occupied = state.units.filter(u => u.tenant).length;
+  expenses += occupied * 40;
+
+  state.units.forEach(u => {
+    // Condition decay
+    u.condition = Math.max(0, u.condition - rand(1, 3));
+
+    // New issue chance
+    if (!u.issue) {
+      const chance = u.condition < 40 ? 0.22 : u.condition < 70 ? 0.10 : 0.04;
+      if (Math.random() < chance) {
+        u.issue = pick(ISSUE_TYPES);
+        pushLog(`Daire ${u.id}: ${u.issue.icon} ${u.issue.label} oluştu!`);
+        if (u.tenant) u.tenant.happiness -= 10;
+      }
+    }
+
+    if (u.tenant) {
+      // Rent vs market pressure
+      if (u.rent > BASE_RENT * 1.15) u.tenant.happiness -= 3;
+      else if (u.rent < BASE_RENT * 0.9) u.tenant.happiness += 2;
+      if (u.issue) u.tenant.happiness -= 5;
+      u.tenant.happiness = Math.max(0, Math.min(100, u.tenant.happiness));
+
+      // Rent payment
+      if (u.tenant.happiness > 15 || Math.random() > 0.3) {
+        income += u.rent;
+        u.tenant.unpaidStreak = 0;
+      } else {
+        u.tenant.unpaidStreak = (u.tenant.unpaidStreak || 0) + 1;
+        pushLog(`Daire ${u.id}: ${u.tenant.name} kirayı ödemedi.`);
+      }
+
+      // Move out check
+      if (u.tenant.happiness <= 0) {
+        pushLog(`Daire ${u.id}: ${u.tenant.name} memnuniyetsizlikten taşındı.`);
+        state.reputation = Math.max(0, state.reputation - 2);
+        u.tenant = null;
+      }
+    } else if (!u.applicant && Math.random() < 0.15 + state.reputation / 400) {
+      const name = pick(TENANT_NAMES);
+      u.applicant = { name, maxRent: u.rent + rand(-300, 600) };
+      pushLog(`Daire ${u.id}: ${name} başvurdu.`);
+    }
+  });
+
+  state.money += income - expenses;
+  pushLog(`Gün ${state.day} kapandı: +${income.toLocaleString("tr-TR")}₺ gelir, -${expenses.toLocaleString("tr-TR")}₺ gider.`);
+
+  // Random building-wide event
+  if (Math.random() < 0.15) triggerRandomEvent();
+
+  // Money streak / game over check
+  if (state.money < 0) {
+    state.badMoneyStreak++;
+  } else {
+    state.badMoneyStreak = 0;
+  }
+
+  state.day++;
+
+  if (state.badMoneyStreak >= 3) {
+    render();
+    document.getElementById("gameOverText").textContent =
+      `${state.day} gün yönettin. Bina iflas etti ve devretmek zorunda kaldın.`;
+    document.getElementById("gameOver").classList.add("show");
+    localStorage.removeItem("apt_sim_save");
+    return;
+  }
+
+  render();
+}
+
+function triggerRandomEvent() {
+  const avgCondition = state.units.reduce((s, u) => s + u.condition, 0) / state.units.length;
+  const events = [
+    () => {
+      if (avgCondition < 55) {
+        const fine = rand(500, 1500);
+        state.money -= fine;
+        pushLog(`🏛️ Belediye denetimi: bina bakımsız bulundu, ${fine.toLocaleString("tr-TR")}₺ ceza kesildi.`);
+      } else {
+        state.reputation = Math.min(100, state.reputation + 3);
+        pushLog("🏛️ Belediye denetimi başarıyla geçildi, itibarın arttı.");
+      }
+    },
+    () => {
+      const u = pick(state.units);
+      u.condition = Math.max(0, u.condition - 25);
+      if (!u.issue) u.issue = ISSUE_TYPES[rand(0, ISSUE_TYPES.length - 1)];
+      pushLog(`⛈️ Fırtına Daire ${u.id}'de hasara yol açtı.`);
+    },
+    () => {
+      state.reputation = Math.min(100, state.reputation + 5);
+      pushLog("📱 Sosyal medyada bina övgüyle anıldı! İtibar arttı.");
+    },
+    () => {
+      const bonus = rand(500, 1200);
+      state.money += bonus;
+      pushLog(`🎁 Beklenmedik gelir: ${bonus.toLocaleString("tr-TR")}₺ kazandın.`);
+    },
+    () => {
+      state.reputation = Math.max(0, state.reputation - 4);
+      pushLog("📝 Kiracılardan toplu şikayet dilekçesi geldi. İtibar düştü.");
+    },
+  ];
+  pick(events)();
+}
+
+function restart() {
+  state = freshState();
+  document.getElementById("gameOver").classList.remove("show");
+  render();
+}
+
+(function init() {
+  const loaded = load();
+  state = loaded || freshState();
+  render();
+})();
+</script>
+</body>
+</html>

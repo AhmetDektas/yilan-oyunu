@@ -51,7 +51,9 @@ yaklaşma ihtimalini ve saldırı hasarını azaltıyor.
 
 **Canvas UI:** `HUDBinder.cs`, `RoomListUI.cs`, `StaffListUI.cs`,
 `AmenityListUI.cs`, `AchievementListUI.cs`, `GuestCheckPanel.cs`,
-`GameOverPanel.cs`, `TabController.cs`
+`GameOverPanel.cs`, `TabController.cs`, `CarryFullToast.cs` (taşıma
+kapasitesi dolunca uyarı), `TutorialPanel.cs` (ilk açılışta bir kerelik
+"nasıl oynanır" paneli)
 
 TextMeshPro kullanıyorlar — Unity ilk `TMP_Text` referansı gördüğünde
 "Import TMP Essentials" isteyecek, kabul et.
@@ -204,6 +206,20 @@ verilerini siler ve **sahneyi baştan yükler** (sadece bellekteki State'i
 sıfırlamak yerine), böylece o oturumda inşa edilmiş kuleler de gerçekten
 kaybolur ve orijinal inşaat alanları (`TowerBuildSite`) geri gelir.
 
+**Taşıma kapasitesi uyarısı:** Harita ekranının üstüne (görünmez
+başlayan) bir `TMP_Text` koy, boş bir GameObject'e `CarryFullToast.cs`
+ekle, `Player`/`Toast Text` alanlarını bağla. Odun ya da et
+kapasitesi (`carryCap`) dolduğunda 2.5 saniyeliğine bir uyarı metni
+belirir, sonra otomatik kaybolur — sessizce hiçbir şey olmaması yerine.
+
+**İlk oynama rehberi:** Canvas altına, varsayılan **açık** bir `Panel`
+(`TutorialPanel` GameObject'i) koy — içine joystick/otomatik toplama/
+bırakma bölgelerini anlatan sabit metin(ler) ve bir **Anladım** `Button`
+yaz. `TutorialPanel.cs`'i ekle, `panelRoot`/`dismissButton` alanlarını
+bağla. Bu panel sadece **uygulamanın hiç açılmadığı ilk seferde**
+gösterilir (bir `PlayerPrefs` bayrağıyla takip edilir, kayıtlı oyundan
+bağımsız); "Anladım"a basınca bir daha çıkmaz.
+
 ## Kimlik kontrolü nasıl dengelendi
 
 `GuestDocument.cs`'teki `GuestDocumentGenerator`:
@@ -251,6 +267,12 @@ ise `GameManager.troubleStrikeChancePerDay`'den ayarlayabilirsin.
   ayrı bir `PlayerPrefs` anahtarında saklar; sahne başlarken
   `TowerBuildSite`'ları `siteId` ile eşleştirip o kuleleri yeniden inşa
   eder.
+- **Kayıt şeması göçü:** `SaveSystem.Load()` yükledikten sonra
+  `StaffKey`/`UpgradeKey`'de eksik olan anahtarları varsayılanlarla
+  dolduruyor (`BackfillMissingKeys`) — ileride bu enum'lara yeni bir
+  değer eklersen (tıpkı `Wall`'ı sonradan eklediğimiz gibi), eski bir
+  kayıt dosyası o yeni anahtarı içermese bile `KeyNotFoundException`
+  fırlatmaz.
 - İncelediğim diğer KaganAyten repoları (`RestaurantGame3DUnity`'nin
   malzeme taşıma/teslim deseni, `Vibe-Survivors`'ın dolaşan düşman
   yapay zekası) zaten kavramsal olarak `PlayerController`/`DropZone`/

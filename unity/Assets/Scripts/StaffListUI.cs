@@ -51,7 +51,7 @@ public class StaffCardUI : MonoBehaviour
         if (!s.Hired)
         {
             titleText.text = def.Label;
-            descText.text = def.Icon.ToString();
+            descText.text = def.Desc;
             footText.text = $"İşe alım: {def.HireCost:N0}₺ + {def.Wage:N0}₺/gün";
             if (xpBar != null) xpBar.gameObject.SetActive(false);
             actionLabel.text = "İşe Al";

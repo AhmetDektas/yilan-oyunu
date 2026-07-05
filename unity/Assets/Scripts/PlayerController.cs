@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -41,9 +42,14 @@ public class PlayerController : MonoBehaviour
     public int CarryWood { get; private set; }
     public int CarryMeat { get; private set; }
 
+    /// <summary>Fires once when a carry slot hits capacity (not every frame) — e.g. "wood" or "meat". Hook a toast/UI message to this.</summary>
+    public event Action<string> OnCarryFull;
+
     NavMeshAgent agent;
     float lastChopAt = -10f;
     float lastAttackAt = -10f;
+    bool woodWasFull;
+    bool meatWasFull;
 
     void Awake()
     {
@@ -96,7 +102,11 @@ public class PlayerController : MonoBehaviour
     void TryAutoChop()
     {
         if (Time.time - lastChopAt < chopCooldown) return;
-        if (CarryWood >= carryCap) return;
+        if (CarryWood >= carryCap)
+        {
+            if (!woodWasFull) { woodWasFull = true; OnCarryFull?.Invoke("wood"); }
+            return;
+        }
 
         var tree = FindNearest<ResourceTree>(chopRange);
         if (tree == null) return;
@@ -119,10 +129,17 @@ public class PlayerController : MonoBehaviour
         bool died = animal.TakeDamage(attackDamage);
         if (died)
         {
-            int amount = Mathf.Min(Random.Range(4, 9), carryCap - CarryMeat);
-            CarryMeat += amount;
-            GameManager.Instance.State.totalMeatCollected += amount;
-            GameManager.Instance.CheckAchievements();
+            if (CarryMeat >= carryCap)
+            {
+                if (!meatWasFull) { meatWasFull = true; OnCarryFull?.Invoke("meat"); }
+            }
+            else
+            {
+                int amount = Mathf.Min(Random.Range(4, 9), carryCap - CarryMeat);
+                CarryMeat += amount;
+                GameManager.Instance.State.totalMeatCollected += amount;
+                GameManager.Instance.CheckAchievements();
+            }
         }
     }
 
@@ -142,8 +159,8 @@ public class PlayerController : MonoBehaviour
         return nearest;
     }
 
-    public void DepositWood(int amount) => CarryWood -= amount;
-    public void DepositMeat(int amount) => CarryMeat -= amount;
+    public void DepositWood(int amount) { CarryWood -= amount; woodWasFull = false; }
+    public void DepositMeat(int amount) { CarryMeat -= amount; meatWasFull = false; }
 
     /// <summary>Collect meat into carry (e.g. from an ArcherTower's stash). Returns how much actually fit.</summary>
     public int AddCarryMeat(int amount)

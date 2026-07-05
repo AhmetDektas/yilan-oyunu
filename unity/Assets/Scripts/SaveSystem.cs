@@ -197,7 +197,25 @@ public static class SaveSystem
         foreach (var a in data.achievements)
             state.achievements.Add(a);
 
+        BackfillMissingKeys(state);
         return state;
+    }
+
+    /// <summary>
+    /// Schema migration safety net: if StaffKey/UpgradeKey ever gain a new
+    /// enum value after a save was written (e.g. the Wall amenity we
+    /// added later), an old save's staff/upgrades dictionaries won't have
+    /// an entry for it. Fill in defaults for anything missing so direct
+    /// indexer access elsewhere (State.staff[key], State.upgrades[key])
+    /// can't throw KeyNotFoundException on an old save.
+    /// </summary>
+    static void BackfillMissingKeys(GameState state)
+    {
+        foreach (StaffKey k in Enum.GetValues(typeof(StaffKey)))
+            if (!state.staff.ContainsKey(k)) state.staff[k] = new StaffMember();
+
+        foreach (UpgradeKey k in Enum.GetValues(typeof(UpgradeKey)))
+            if (!state.upgrades.ContainsKey(k)) state.upgrades[k] = 0;
     }
 
     /// <summary>Real-world seconds since this save was written — use for an offline-progress feature if you want one.</summary>

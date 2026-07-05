@@ -33,28 +33,15 @@
   #buildingIcon { font-size: 26px; }
   #buildingName { font-weight: 700; font-size: 15px; text-align: left; }
   #buildingName small { display: block; font-size: 10px; color: #7c8698; font-weight: 400; }
-  .stats { display: flex; gap: 12px; }
-  .stat { text-align: center; font-size: 12px; color: #9aa4b2; min-width: 46px; }
-  .stat b { display: block; font-size: 14px; color: #fff; }
+  .stats { display: flex; gap: 8px; }
+  .stat { text-align: center; font-size: 10.5px; color: #9aa4b2; min-width: 34px; }
+  .stat b { display: block; font-size: 12.5px; color: #fff; }
   .stat.money b { color: #f2c14e; }
   .stat.rep b { color: #7ad0ff; }
+  .stat.wood b { color: #c98a4b; }
+  .stat.meat b { color: #e0685a; }
 
-  /* Resource bar (wood / meat, tap to gather) */
-  #resourceBar {
-    display: flex; gap: 8px; padding: 8px 14px; position: sticky; top: 58px; z-index: 6;
-    background: rgba(18,20,28,.92); border-bottom: 1px solid #262b38;
-  }
-  .resChip {
-    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 8px 6px; border-radius: 10px; border: 1px solid #2c3242;
-    background: linear-gradient(160deg,#232838,#1b1f2a); color: #fff; font-size: 13px; font-weight: 700;
-  }
-  .resChip:active { transform: scale(0.96); }
-  .resChip .tapHint { font-size: 9px; font-weight: 400; color: #7c8698; margin-left: 2px; }
-  #woodChip b { color: #c98a4b; }
-  #huntChip b { color: #e0685a; }
-
-  #dayProgressWrap { height: 4px; background: #1a1d26; position: sticky; top: 100px; z-index: 6; }
+  #dayProgressWrap { height: 4px; background: #1a1d26; position: sticky; top: 58px; z-index: 6; }
   #dayProgressFill { height: 100%; width: 0%; background: linear-gradient(90deg,#4c7cf2,#7ad0ff); transition: width .2s linear; }
 
   /* Tabs */
@@ -72,6 +59,21 @@
 
   .tabpane { display: none; flex: 1; flex-direction: column; }
   .tabpane.active { display: flex; }
+
+  /* Live map (Harita) */
+  #mapWrap {
+    position: relative; margin: 10px 12px; border-radius: 16px; overflow: hidden;
+    border: 1px solid #2c3242; box-shadow: 0 6px 16px rgba(0,0,0,.35); line-height: 0;
+  }
+  #mapCanvas { width: 100%; display: block; touch-action: none; background: #2d4a33; }
+  #carryBar {
+    display: flex; gap: 14px; justify-content: center; padding: 8px; font-size: 13px; font-weight: 700;
+    background: rgba(18,20,28,.92); border-top: 1px solid #262b38;
+  }
+  #carryBar b { color: #fff; font-weight: 800; }
+  #mapHint {
+    text-align: center; font-size: 11px; color: #7c8698; padding: 4px 14px 0;
+  }
 
   /* Building visual scene */
   #buildingScene {
@@ -242,17 +244,22 @@
     <div class="stats">
       <div class="stat money">💰<b id="moneyStat">0₺</b></div>
       <div class="stat rep">⭐<b id="repStat">50</b></div>
+      <div class="stat wood">🪵<b id="woodStat">0</b></div>
+      <div class="stat meat">🥩<b id="meatStat">0</b></div>
     </div>
-  </div>
-
-  <div id="resourceBar">
-    <button class="resChip" id="woodChip" onclick="tapChopWood(event)">🪵 <b id="woodStat">0</b><span class="tapHint">kes</span></button>
-    <button class="resChip" id="huntChip" onclick="tapHunt(event)">🥩 <b id="meatStat">0</b><span class="tapHint">avlan</span></button>
   </div>
 
   <div id="dayProgressWrap"><div id="dayProgressFill"></div></div>
 
-  <div id="tab-bina" class="tabpane active">
+  <div id="tab-harita" class="tabpane active">
+    <div id="mapWrap">
+      <canvas id="mapCanvas" width="356" height="380"></canvas>
+    </div>
+    <div id="mapHint">Haritaya dokun: karakter oraya yürür. Ağaca dokun: odun keser. Hayvana dokun: saldırır.</div>
+    <div id="carryBar">🪵 <b id="carryWoodStat">0</b>/<span id="carryWoodMax">20</span> &nbsp;&nbsp; 🥩 <b id="carryMeatStat">0</b>/<span id="carryMeatMax">20</span></div>
+  </div>
+
+  <div id="tab-bina" class="tabpane">
     <div id="buildingScene">
       <div id="sceneSky"></div>
       <div id="sceneSkyline"></div>
@@ -283,7 +290,8 @@
   </div>
 
   <div id="tabbar">
-    <button class="tabbtn active" data-tab="bina" onclick="switchTab('bina')"><span class="ic">🏨</span>Otel</button>
+    <button class="tabbtn active" data-tab="harita" onclick="switchTab('harita')"><span class="ic">🗺️</span>Harita</button>
+    <button class="tabbtn" data-tab="bina" onclick="switchTab('bina')"><span class="ic">🏨</span>Otel</button>
     <button class="tabbtn" data-tab="personel" onclick="switchTab('personel')"><span class="ic">👷</span>Personel</button>
     <button class="tabbtn" data-tab="yukseltme" onclick="switchTab('yukseltme')"><span class="ic">🛎️</span>Olanaklar</button>
     <button class="tabbtn" data-tab="basarim" onclick="switchTab('basarim')"><span class="ic">🏆</span>Başarım</button>
@@ -381,11 +389,9 @@ const ACHIEVEMENTS = [
 ];
 
 let state = null;
-let activeTab = "bina";
+let activeTab = "harita";
 let tickHandle = null;
 let lastTapBonus = 0;
-let lastChopTap = 0;
-let lastHuntTap = 0;
 
 /* ---------- State ---------- */
 function freshState() {
@@ -394,6 +400,8 @@ function freshState() {
     money: STARTING_MONEY,
     wood: STARTING_WOOD,
     meat: 0,
+    carryWood: 0,
+    carryMeat: 0,
     reputation: 50,
     badMoneyStreak: 0,
     totalEarned: 0,
@@ -438,6 +446,8 @@ function ensureShape(s) {
   if (typeof s.totalMeatCollected !== "number") s.totalMeatCollected = 0;
   if (typeof s.totalWoodChopped !== "number") s.totalWoodChopped = 0;
   if (typeof s.wood !== "number") s.wood = 0;
+  if (typeof s.carryWood !== "number") s.carryWood = 0;
+  if (typeof s.carryMeat !== "number") s.carryMeat = 0;
   if (typeof s.meat !== "number") s.meat = 0;
   if (typeof s.dayProgress !== "number") s.dayProgress = 0;
   if (typeof s.speed !== "number") s.speed = 1;
@@ -528,34 +538,231 @@ function tapBonus(e) {
   render();
 }
 
-function tapChopWood(e) {
-  const now = Date.now();
-  if (now - lastChopTap < 500) return;
-  lastChopTap = now;
-  const amount = rand(4, 8);
-  state.wood += amount;
-  state.totalWoodChopped += amount;
-  const rect = e.currentTarget.getBoundingClientRect();
-  floatText("+" + amount + " 🪵", rect.left + rect.width / 2 - 14, rect.top, "#c98a4b");
-  checkAchievements();
-  render();
+/* ---------- Live map (Harita): movement, chopping, hunting, deposits ---------- */
+const MAP_W = 356, MAP_H = 380;
+const CARRY_CAP = 20;
+const PLAYER_SPEED = 130;
+const CHOP_RANGE = 34, ATTACK_RANGE = 34;
+const CHOP_COOLDOWN = 1100, ATTACK_COOLDOWN = 450;
+const ATTACK_DAMAGE = 30, ANIMAL_MAX_HP = 60;
+const TREE_COUNT = 5, ANIMAL_COUNT = 3;
+
+const zones = {
+  hotel:     { x: MAP_W / 2 - 45, y: 8,           w: 90, h: 55, label: "Otel",       icon: "🏨" },
+  yemekhane: { x: 14,             y: MAP_H - 68,  w: 92, h: 56, label: "Yemekhane",  icon: "🍽️" },
+  depo:      { x: MAP_W - 106,    y: MAP_H - 68,  w: 92, h: 56, label: "Depo",       icon: "🪵" },
+};
+
+const player = { x: MAP_W / 2, y: MAP_H / 2 + 40, targetX: MAP_W / 2, targetY: MAP_H / 2 + 40 };
+let pendingChop = null, pendingAttack = null;
+let lastChopAt = 0, lastAttackAt = 0;
+let mapCanvas, mapCtx, mapLastTs = 0, mapRunning = false;
+const trees = [], animals = [];
+
+function rndf(min, max) { return Math.random() * (max - min) + min; }
+function dist(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
+function inZone(p, z) { return p.x > z.x && p.x < z.x + z.w && p.y > z.y && p.y < z.y + z.h; }
+
+function spawnTree() { return { x: rndf(30, MAP_W - 30), y: rndf(110, MAP_H - 100) }; }
+function spawnAnimal() {
+  const edge = Math.floor(rndf(0, 4));
+  let x, y;
+  if (edge === 0) { x = rndf(10, MAP_W - 10); y = 100; }
+  else if (edge === 1) { x = rndf(10, MAP_W - 10); y = MAP_H - 85; }
+  else if (edge === 2) { x = 15; y = rndf(100, MAP_H - 90); }
+  else { x = MAP_W - 15; y = rndf(100, MAP_H - 90); }
+  return { x, y, hp: ANIMAL_MAX_HP, maxHp: ANIMAL_MAX_HP, state: "wander", wanderTarget: null, nextDecisionAt: 0, dead: false, respawnAt: 0 };
 }
 
-function tapHunt(e) {
-  const now = Date.now();
-  if (now - lastHuntTap < 700) return;
-  lastHuntTap = now;
-  const rect = e.currentTarget.getBoundingClientRect();
-  if (Math.random() < 0.25) {
-    floatText("Kaçtı! 💨", rect.left + rect.width / 2 - 20, rect.top, "#8b95a5");
-  } else {
-    const amount = rand(3, 6);
-    state.meat += amount;
-    state.totalMeatCollected += amount;
-    floatText("+" + amount + " 🥩", rect.left + rect.width / 2 - 14, rect.top, "#e0685a");
-    checkAchievements();
+function initMap() {
+  trees.length = 0;
+  for (let i = 0; i < TREE_COUNT; i++) trees.push(spawnTree());
+  animals.length = 0;
+  for (let i = 0; i < ANIMAL_COUNT; i++) animals.push(spawnAnimal());
+  mapCanvas = document.getElementById("mapCanvas");
+  mapCtx = mapCanvas.getContext("2d");
+  mapCanvas.addEventListener("pointerdown", onMapTap);
+  updateCarryUI();
+  if (!mapRunning) { mapRunning = true; requestAnimationFrame(mapLoop); }
+}
+
+function toMapCoords(clientX, clientY) {
+  const rect = mapCanvas.getBoundingClientRect();
+  return { x: (clientX - rect.left) * (mapCanvas.width / rect.width), y: (clientY - rect.top) * (mapCanvas.height / rect.height) };
+}
+
+function setPlayerTarget(x, y) {
+  player.targetX = Math.max(12, Math.min(MAP_W - 12, x));
+  player.targetY = Math.max(12, Math.min(MAP_H - 12, y));
+}
+
+function onMapTap(e) {
+  const { x, y } = toMapCoords(e.clientX, e.clientY);
+  for (const t of trees) {
+    if (dist(x, y, t.x, t.y) < 22) { pendingChop = t; pendingAttack = null; setPlayerTarget(t.x, t.y + 26); return; }
   }
+  for (const a of animals) {
+    if (!a.dead && dist(x, y, a.x, a.y) < 22) { pendingAttack = a; pendingChop = null; setPlayerTarget(a.x, a.y); return; }
+  }
+  pendingChop = null; pendingAttack = null;
+  setPlayerTarget(x, y);
+}
+
+function updateCarryUI() {
+  document.getElementById("carryWoodStat").textContent = Math.floor(state.carryWood);
+  document.getElementById("carryMeatStat").textContent = Math.floor(state.carryMeat);
+}
+
+function doChop(now) {
+  if (!pendingChop) return;
+  if (dist(player.x, player.y, pendingChop.x, pendingChop.y) > CHOP_RANGE) return;
+  if (now - lastChopAt < CHOP_COOLDOWN) return;
+  if (state.carryWood >= CARRY_CAP) return;
+  lastChopAt = now;
+  const amount = Math.min(rand(3, 6), CARRY_CAP - state.carryWood);
+  state.carryWood += amount;
+  state.totalWoodChopped += amount;
+  updateCarryUI();
+  checkAchievements();
+}
+
+function doAttack(now) {
+  if (!pendingAttack || pendingAttack.dead) { pendingAttack = null; return; }
+  const a = pendingAttack;
+  setPlayerTarget(a.x, a.y);
+  if (dist(player.x, player.y, a.x, a.y) > ATTACK_RANGE) return;
+  if (now - lastAttackAt < ATTACK_COOLDOWN) return;
+  lastAttackAt = now;
+  a.hp -= ATTACK_DAMAGE;
+  if (a.hp <= 0) {
+    a.dead = true;
+    a.respawnAt = now + rndf(6000, 12000);
+    const amount = Math.min(rand(4, 8), CARRY_CAP - state.carryMeat);
+    state.carryMeat += amount;
+    state.totalMeatCollected += amount;
+    updateCarryUI();
+    checkAchievements();
+    pendingAttack = null;
+  }
+}
+
+function depositIfInZone() {
+  if (state.carryMeat > 0 && inZone(player, zones.yemekhane)) {
+    const amt = state.carryMeat;
+    state.meat += amt;
+    state.carryMeat = 0;
+    pushLog(`🍽️ Yemekhaneye ${amt} et bırakıldı.`);
+    updateCarryUI();
+    render();
+  }
+  if (state.carryWood > 0 && inZone(player, zones.depo)) {
+    const amt = state.carryWood;
+    state.wood += amt;
+    state.carryWood = 0;
+    pushLog(`🪵 Depoya ${amt} odun bırakıldı.`);
+    updateCarryUI();
+    render();
+  }
+}
+
+function animalReachesHotel(a, now) {
+  const gFactor = state.staff.guvenlik.hired ? guvenlikFactor(state.staff.guvenlik.level) : 1;
+  const u = pick(state.units);
+  u.condition = Math.max(0, u.condition - rand(10, 20) * gFactor);
+  const stolen = Math.min(state.meat, Math.round(rand(5, 15) * gFactor));
+  state.meat -= stolen;
+  pushLog(`🐗 Bir hayvan otele saldırdı! Oda ${u.id} hasar aldı, ${stolen} et çalındı.`);
   render();
+  a.dead = true;
+  a.respawnAt = now + rndf(6000, 12000);
+}
+
+function updateAnimal(a, dt, now) {
+  if (a.dead) { if (now >= a.respawnAt) Object.assign(a, spawnAnimal()); return; }
+  const gFactor = state.staff.guvenlik.hired ? guvenlikFactor(state.staff.guvenlik.level) : 1;
+  if (now >= a.nextDecisionAt) {
+    a.nextDecisionAt = now + rndf(2500, 4500);
+    if (a.state === "wander" && Math.random() < 0.35 * gFactor) {
+      a.state = "approach";
+    } else {
+      a.state = "wander";
+      a.wanderTarget = { x: rndf(20, MAP_W - 20), y: rndf(100, MAP_H - 90) };
+    }
+  }
+  const hotelFront = { x: zones.hotel.x + zones.hotel.w / 2, y: zones.hotel.y + zones.hotel.h + 10 };
+  const targetPos = a.state === "approach" ? hotelFront : a.wanderTarget;
+  if (targetPos) {
+    const d = dist(a.x, a.y, targetPos.x, targetPos.y);
+    const speed = a.state === "approach" ? 32 : 18;
+    if (d > 3) { a.x += (targetPos.x - a.x) / d * speed * dt; a.y += (targetPos.y - a.y) / d * speed * dt; }
+  }
+  if (a.state === "approach" && dist(a.x, a.y, hotelFront.x, hotelFront.y) < 12) animalReachesHotel(a, now);
+}
+
+function drawZone(z, color) {
+  mapCtx.fillStyle = color;
+  mapCtx.fillRect(z.x, z.y, z.w, z.h);
+  mapCtx.strokeStyle = "#00000055";
+  mapCtx.strokeRect(z.x, z.y, z.w, z.h);
+  mapCtx.font = "20px sans-serif";
+  mapCtx.textAlign = "center"; mapCtx.textBaseline = "middle";
+  mapCtx.fillText(z.icon, z.x + z.w / 2, z.y + z.h / 2 - 8);
+  mapCtx.font = "10px sans-serif";
+  mapCtx.fillStyle = "#fff";
+  mapCtx.fillText(z.label, z.x + z.w / 2, z.y + z.h / 2 + 14);
+}
+
+function drawMap() {
+  const ctx = mapCtx;
+  ctx.clearRect(0, 0, MAP_W, MAP_H);
+  ctx.fillStyle = "#2d4a33";
+  ctx.fillRect(0, 0, MAP_W, MAP_H);
+
+  drawZone(zones.hotel, "#5a4636");
+  drawZone(zones.yemekhane, "#7a4a2e");
+  drawZone(zones.depo, "#4a3a2a");
+
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = "26px sans-serif";
+  trees.forEach(t => ctx.fillText("🌲", t.x, t.y));
+
+  animals.forEach(a => {
+    if (a.dead) return;
+    ctx.font = "24px sans-serif";
+    ctx.fillText("🐗", a.x, a.y);
+    const pct = a.hp / a.maxHp;
+    ctx.fillStyle = "#00000088"; ctx.fillRect(a.x - 16, a.y - 22, 32, 4);
+    ctx.fillStyle = pct > 0.5 ? "#4caf7d" : "#d9534f"; ctx.fillRect(a.x - 16, a.y - 22, 32 * pct, 4);
+  });
+
+  ctx.font = "28px sans-serif";
+  ctx.fillText("🧑‍🌾", player.x, player.y);
+  if (state.carryWood > 0 || state.carryMeat > 0) {
+    ctx.font = "11px sans-serif";
+    ctx.fillStyle = "#fff";
+    ctx.fillText(`🪵${Math.floor(state.carryWood)} 🥩${Math.floor(state.carryMeat)}`, player.x, player.y - 24);
+  }
+}
+
+function mapLoop(ts) {
+  if (!mapLastTs) mapLastTs = ts;
+  const dt = Math.min(0.05, (ts - mapLastTs) / 1000);
+  mapLastTs = ts;
+  const now = Date.now();
+
+  const d = dist(player.x, player.y, player.targetX, player.targetY);
+  if (d > 2) {
+    player.x += (player.targetX - player.x) / d * PLAYER_SPEED * dt;
+    player.y += (player.targetY - player.y) / d * PLAYER_SPEED * dt;
+  }
+
+  doChop(now);
+  doAttack(now);
+  depositIfInZone();
+  animals.forEach(a => updateAnimal(a, dt, now));
+
+  if (activeTab === "harita" && mapCtx) drawMap();
+  requestAnimationFrame(mapLoop);
 }
 
 /* ---------- Tabs ---------- */
@@ -1032,10 +1239,8 @@ function triggerRandomEvent(silent) {
     () => {
       const u = pick(state.units);
       u.condition = Math.max(0, u.condition - 25 * bMul);
-      const stolenMeat = Math.min(state.meat, Math.round(rand(5, 15) * bMul));
-      state.meat -= stolenMeat;
       if (!u.issue && !state.staff.kapici.hired) u.issue = ISSUE_TYPES[rand(0, ISSUE_TYPES.length - 1)];
-      if (!silent) pushLog(`🐺 Vahşi hayvan sürüsü Oda ${u.id}'ye saldırdı, ${stolenMeat} et çalındı.`);
+      if (!silent) pushLog(`⛈️ Fırtına Oda ${u.id}'de hasara yol açtı.`);
     },
     () => {
       state.reputation = Math.min(100, state.reputation + 5);
@@ -1149,7 +1354,7 @@ function closeWelcome() {
 function restart() {
   state = freshState();
   document.getElementById("gameOver").classList.remove("show");
-  switchTab("bina");
+  switchTab("harita");
   render();
   startTickLoop();
 }
@@ -1172,7 +1377,8 @@ document.addEventListener("visibilitychange", () => {
   const summary = state.lastActive ? applyOfflineProgress() : null;
 
   render();
-  switchTab("bina");
+  switchTab("harita");
+  initMap();
   startTickLoop();
 
   if (summary && summary.days > 0) {

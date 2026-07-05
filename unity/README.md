@@ -173,8 +173,15 @@ ise `GameManager.troubleStrikeChancePerDay`'den ayarlayabilirsin.
   kayda dahil değil — sahne yeniden yüklenince sıfırlanır (kasıtlı,
   basitlik için). `GameState.wood`/`meat` (depolanmış stok) ise kalıcı
   olması gereken asıl ekonomi verisi.
-- Kaydetme (save/load) yok; istersen `GameState`'i JSON'a çevirip
-  `PlayerPrefs`'e yazan küçük bir `SaveSystem.cs` da ekleyebilirim.
+- **Kaydetme/yükleme var:** `SaveSystem.cs`, `GameState`'i (Dictionary/
+  nullable alanlar dahil) düz DTO'lara çevirip Unity'nin yerleşik
+  `JsonUtility` + `PlayerPrefs`'i ile saklıyor — ekstra paket gerekmez.
+  Otomatik kayıt: her `autosaveIntervalSeconds` (varsayılan 30sn), uygulama
+  arka plana atıldığında (`OnApplicationPause`) ve kapanırken
+  (`OnApplicationQuit`). `GameManager.Awake()` başlarken önce kayıtlı
+  oyunu yükler, yoksa sıfırdan başlar. `Restart()` ve iflas anı kaydı
+  siler (web sürümüyle aynı davranış). Herhangi bir sahne/Canvas kurulumu
+  gerektirmiyor, otomatik çalışıyor.
 - İncelediğim diğer KaganAyten repoları (`RestaurantGame3DUnity`'nin
   malzeme taşıma/teslim deseni, `Vibe-Survivors`'ın dolaşan düşman
   yapay zekası) zaten kavramsal olarak `PlayerController`/`DropZone`/

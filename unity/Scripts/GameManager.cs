@@ -27,6 +27,9 @@ public class GameManager : MonoBehaviour
     [Tooltip("Her gün, içeri alınmış bir 'sorunlu' misafirin vurup kaçma ihtimali.")]
     public double troubleStrikeChancePerDay = 0.25;
 
+    [Header("Kaydetme")]
+    public float autosaveIntervalSeconds = 30f;
+
     public GameState State { get; private set; }
     public bool IsGameOver { get; private set; }
 
@@ -40,10 +43,12 @@ public class GameManager : MonoBehaviour
         "Zeynep Arslan", "Mustafa Doğan", "Emine Aydın", "Hüseyin Öztürk", "Hatice Yıldız",
     };
 
+    float autosaveTimer;
+
     void Awake()
     {
         Instance = this;
-        State = CreateFreshState();
+        State = SaveSystem.Load() ?? CreateFreshState();
     }
 
     void Update()
@@ -57,13 +62,28 @@ public class GameManager : MonoBehaviour
             State.dayProgress -= 1f;
             ProcessDay();
         }
+
+        autosaveTimer += Time.deltaTime;
+        if (autosaveTimer >= autosaveIntervalSeconds)
+        {
+            autosaveTimer = 0f;
+            SaveSystem.Save(State);
+        }
     }
+
+    void OnApplicationPause(bool paused)
+    {
+        if (paused) SaveSystem.Save(State);
+    }
+
+    void OnApplicationQuit() => SaveSystem.Save(State);
 
     /// <summary>Resets the economy and clears the game-over state. Call from a restart button.</summary>
     public void Restart()
     {
         IsGameOver = false;
         State = CreateFreshState();
+        SaveSystem.DeleteSave();
     }
 
     GameState CreateFreshState()
@@ -170,6 +190,7 @@ public class GameManager : MonoBehaviour
     {
         IsGameOver = true;
         Log($"{State.day} gün yönettin. Otel iflas etti ve devretmek zorunda kaldın.");
+        SaveSystem.DeleteSave();
         OnGameOver?.Invoke();
     }
 

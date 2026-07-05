@@ -53,11 +53,22 @@ saldırır; duvar yıkılırsa (HP 0) o bölgeden geçip otele ulaşabilirler.
 Yıkık duvarın yanına odun taşıyarak yürümek otomatik tamir eder (Depo/
 Yemekhane gibi, dokunma gerekmez). `ArcherTower.cs` (otomatik saldıran,
 öldürdüğü hayvanlardan et biriktiren kule), `TowerBuildSite.cs` (parayla
-inşa edilen kule alanı), `TowerPersistence.cs` (kuleleri oturumlar
-arasında kaydeder/geri yükler). Olanaklar'daki "Çit & Duvar" seviyesi
-ise `Wall.cs`'ten ayrı, tamamlayıcı bir katman — hayvanların hiç
-yaklaşmaya **karar verme ihtimalini** ve otele ulaştıklarında verdikleri
-hasarı azaltan soyut bir çarpan (`AmenitySystem`/`AmenityListUI`).
+inşa edilen, **sadece önceden yerleştirilmiş sabit karelerde** kurulabilen
+kule alanı — kule başka hiçbir yerde belirmez), `TowerPersistence.cs`
+(kuleleri oturumlar arasında kaydeder/geri yükler). Olanaklar'daki
+"Çit & Duvar" seviyesi ise `Wall.cs`'ten ayrı, tamamlayıcı bir katman —
+hayvanların hiç yaklaşmaya **karar verme ihtimalini** ve otele
+ulaştıklarında verdikleri hasarı azaltan soyut bir çarpan
+(`AmenitySystem`/`AmenityListUI`).
+
+**Görsel geri bildirim:** `BuildPopEffect.cs` — yeni inşa edilen bir
+kulenin (`TowerBuildSite`) veya otel genişleyince eklenen yeni oda
+kartlarının (`RoomListUI`) 0 ölçekten hafif taşarak (overshoot) tam
+boyutuna oturmasını sağlayan, Wild Survival tarzı "tak!" hissi veren
+kısa bir animasyon. Hiçbir prefab kurulumu gerekmiyor — `Play(GameObject)`
+çağrıldığında bileşeni kendi ekliyor. Kaydedilmiş kulelerin oturum
+başında geri yüklenmesinde (`TowerPersistence`) **kasıtlı olarak
+kullanılmıyor** — o an "inşa edilmiyorlar", zaten oradaydılar.
 
 **Canvas UI:** `HUDBinder.cs`, `RoomListUI.cs`, `StaffListUI.cs`,
 `AmenityListUI.cs`, `AchievementListUI.cs`, `GuestCheckPanel.cs`,

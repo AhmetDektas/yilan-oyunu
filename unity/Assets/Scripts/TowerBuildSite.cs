@@ -4,7 +4,9 @@ using UnityEngine;
 /// A marker for a buildable archer-tower slot. Walk the player into its
 /// trigger to build a tower there for `cost` money (if affordable) — same
 /// "walk there, it happens" rhythm as DropZone. The site consumes itself
-/// once built so it can't be re-built.
+/// once built so it can't be re-built. Towers can only ever appear on
+/// these pre-placed slots (never anywhere else), and the new tower pops
+/// into place via BuildPopEffect rather than just appearing.
 ///
 /// Set a unique siteId per site in the Inspector — TowerPersistence uses
 /// it to match a saved tower back to this exact slot on next launch (and
@@ -26,6 +28,7 @@ public class TowerBuildSite : MonoBehaviour
         var go = Instantiate(archerTowerPrefab, transform.position, transform.rotation);
         var tower = go.GetComponent<ArcherTower>();
         if (tower != null) tower.SiteId = siteId;
+        BuildPopEffect.Play(go);
         Destroy(gameObject);
     }
 }

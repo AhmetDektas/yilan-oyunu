@@ -8,6 +8,9 @@ using TMPro;
 /// prefab (assign a prefab with a RoomCardUI component). Call Refresh()
 /// whenever the room list changes (e.g. after ExpandHotel, or just call
 /// it from a periodic UI-tick if you'd rather not wire every action).
+/// Cards created for genuinely new rooms (ExpandHotel growing
+/// units.Count) pop in via BuildPopEffect; pooled/reused cards don't
+/// re-animate on every Refresh.
 /// </summary>
 public class RoomListUI : MonoBehaviour
 {
@@ -28,6 +31,7 @@ public class RoomListUI : MonoBehaviour
         {
             var go = Instantiate(roomCardPrefab, contentParent);
             cards.Add(go.GetComponent<RoomCardUI>());
+            BuildPopEffect.Play(go);
         }
         for (int i = 0; i < units.Count; i++)
         {

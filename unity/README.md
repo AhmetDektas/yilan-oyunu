@@ -9,11 +9,14 @@ durumda (eski web prototipi kaldırıldı). Unity Editor'ü bu ortamda
 script'ler mantık + davranış katmanı, sahneyi aşağıdaki adımlarla sen
 kuracaksın.
 
-**Referans:** Karakter hareketi, github.com/KaganAyten/Click-MoveSource
-reposundaki yaklaşımdan uyarlandı (raycast → `NavMeshAgent.SetDestination`
-→ animator senkronu) — bu yüzden script'ler gerçek 3D/`NavMeshAgent`
-tabanlı: karakter ve hayvanlar ağaçların/binanın içinden geçmiyor, gerçek
-yol buluyor.
+**Kontrol şeması:** Dokunarak hareket/etkileşim **yok** — hiçbir tap/
+raycast bulunmuyor, bu yüzden Canvas UI butonlarıyla (Kabul Et, sekme
+butonları vb.) asla çakışmıyor. Hareket bir **joystick** ile (kamera
+göreceli, `NavMeshAgent.velocity` üzerinden — karakter ve hayvanlar yine
+ağaçların/binanın içinden geçmiyor, gerçek yol buluyor). Ağaç kesme,
+hayvan avlama ve kule/depo/yemekhane gibi satın alma/bırakma işlemleri
+**tamamen yakınlık bazlı**: karakter menzile girince kendiliğinden
+tetikleniyor, ekstra bir dokunma gerekmiyor.
 
 ## 1) Proje oluştur
 
@@ -34,13 +37,15 @@ tüm oyuncu aksiyonları (`RepairUnit`, `AcceptBooking`, `ResolveEntryDecision`,
 `HireStaff`, `BuyAmenity`, `ExpandHotel`, `DepositWood/Meat`, `AnimalRaid`...)
 burada.
 
-**Harita (gerçek zamanlı toplama, NavMeshAgent tabanlı):**
-`PlayerController.cs`, `ResourceTree.cs`, `Animal.cs`, `DropZone.cs`,
-`IsometricCameraRig.cs`, `CameraFollow.cs`
+**Harita (gerçek zamanlı toplama, NavMeshAgent + joystick tabanlı):**
+`PlayerController.cs`, `Joystick.cs` (dokunmalı sanal joystick UI'ı),
+`ResourceTree.cs`, `Animal.cs`, `DropZone.cs`, `IsometricCameraRig.cs`,
+`CameraFollow.cs`
 
 **Savunma:** `ArcherTower.cs` (otomatik saldıran, öldürdüğü hayvanlardan
 et biriktiren kule), `TowerBuildSite.cs` (parayla inşa edilen kule
-alanı). "Çit & Duvar" ise ayrı bir script değil — mevcut Olanaklar
+alanı), `TowerPersistence.cs` (kuleleri oturumlar arasında kaydeder/geri
+yükler). "Çit & Duvar" ise ayrı bir script değil — mevcut Olanaklar
 (`AmenitySystem`/`AmenityListUI`) sistemine eklenen bir seviye, hayvan
 yaklaşma ihtimalini ve saldırı hasarını azaltıyor.
 
@@ -74,8 +79,16 @@ TextMeshPro kullanıyorlar — Unity ilk `TMP_Text` referansı gördüğünde
    aşağıya bak), `PlayerController` bileşeni ekle — `NavMeshAgent` ve
    `Rigidbody` gereksinimlerini otomatik ekleyecek (Rigidbody'yi
    Kinematic yapman `Awake()` içinde otomatik oluyor). `Cam` alanına
-   Main Camera'yı sürükle (boş bırakırsan otomatik `Camera.main`
-   kullanır).
+   Main Camera'yı sürükle.
+7b. **Sanal joystick (UI):** Canvas altına bir `Panel` (arka plan
+   dairesi, adı `Background`) + içine bir `Image` (tutamaç, adı
+   `Handle`) koy, ekranın sol-alt köşesine sabitle (Anchor: bottom-left).
+   `Background`'a `Joystick.cs` bileşenini ekle, `Background`/`Handle`
+   alanlarını sürükle. `PlayerController.Joystick` alanına bu bileşeni
+   bağla. Artık dokunup sürüklemek karakteri kamera yönüne göre hareket
+   ettirir; parmağı bırakınca joystick merkeze döner ve karakter durur.
+   Ağaç kesme/hayvan avlama **otomatik** — karakter menzile girince
+   kendiliğinden tetiklenir, ekstra dokunma gerekmez.
 8. **Kamera takibi:** Main Camera'ya hem `IsometricCameraRig`
    (`xAngle=35`, `yAngle=45` — açıyı ayarlar) hem de `CameraFollow`
    (karakteri takip eder) bileşenlerini ekle. Kamerayı Scene view'da elle
@@ -92,20 +105,30 @@ TextMeshPro kullanıyorlar — Unity ilk `TMP_Text` referansı gördüğünde
    Otelin çevresine 1-3 tane boş kutu/marker yerleştir, her birine
    `TowerBuildSite` bileşeni ekle (Collider = trigger), `Archer Tower
    Prefab` alanına az önce yaptığın prefabı sürükle, `Cost` belirle
-   (varsayılan öneri: 4000₺). Bu marker'lara **Static işaretleme**,
-   çünkü henüz inşa edilmediler.
-10. **NavMesh bake et:** Window → AI → Navigation → Bake sekmesi → Bake
+   (varsayılan öneri: 4000₺), ve **her birine benzersiz bir `Site Id`**
+   yaz (örn. `"tower_kuzey"`, `"tower_dogu"`) — bu, kule kalıcılığı için
+   şart. Bu marker'lara **Static işaretleme**, çünkü henüz inşa
+   edilmediler.
+10. **Kule kalıcılığı:** `GameManager`'ın olduğu GameObject'e (veya ayrı
+    bir boş GameObject'e) `TowerPersistence.cs`'i ekle, `Archer Tower
+    Prefab` alanına 9. adımdaki prefabı sürükle. Bu sayede inşa ettiğin
+    kuleler (konum + biriken et) oturumlar arasında (uygulama kapanıp
+    açıldığında) korunur — hiçbir ek Canvas/UI kurulumu gerekmiyor,
+    otomatik çalışır.
+11. **NavMesh bake et:** Window → AI → Navigation → Bake sekmesi → Bake
     butonu. Zemin Walkable, ağaç/otel/hayvanlar Not Walkable olarak
     görünmeli (mavi alan = yürünebilir).
 
-Bu kurulumla: haritaya dokun → karakter oraya **yol bularak** yürür;
-ağaca dokun → yürüyüp keser; hayvana dokun → kovalayıp balta ile
-saldırır; taşınan odun/et kapasiteyi (`carryCap`, varsayılan 20)
-doldurunca Depo/Yemekhane'ye yürüyüp bırakman gerekir. Bir kule inşa
-alanına yürürsen (parayı karşılarsan) otomatik olarak orada bir okçu
-kulesi doğar; kule kendi kendine menzilindeki hayvanlara ateş eder,
-öldürdüğü hayvanlardan biriken eti almak için kulenin yanına yürümen
-yeterli.
+Bu kurulumla: joystick'i sürükle → karakter kamera yönüne göre **yol
+bularak** yürür (ağaç/bina gibi engellerin içinden geçmez); bir ağacın
+yanına gel → otomatik keser; bir hayvanın yanına gel → otomatik balta ile
+saldırır; taşınan odun/et kapasitesi (`carryCap`, varsayılan 20) dolunca
+Depo/Yemekhane'ye yürüyüp bırakman gerekir (o da otomatik, bölgeye
+girince tetiklenir). Bir kule inşa alanına yürürsen (parayı karşılarsan)
+otomatik olarak orada bir okçu kulesi doğar; kule kendi kendine
+menzilindeki hayvanlara ateş eder, öldürdüğü hayvanlardan biriken eti
+almak için kulenin yanına yürümen yeterli. **Hiçbir adımda dokunarak
+hedef seçmek/tıklamak yok** — sadece joystick ile hareket.
 
 ### 3D karakter + Mixamo eklemek istersen
 
@@ -116,13 +139,14 @@ Küp yerine gerçek bir karakter modeli kullanmak için:
    (Format: FBX for Unity).
 2. Modeli sahneye sürükle, Rig sekmesinde Animation Type = **Humanoid**.
 3. Bir Animator Controller oluştur: `IsWalking` bool (Idle↔Walking),
-   `Interact` trigger — isimler `PlayerController.isWalkingParam` ile
-   eşleşsin (Inspector'dan değiştirebilirsin).
-4. `PlayerController`'ın `animator` alanına bu Animator'ı bağla —
-   `TryChop`/`TryAttack` içine `animator.SetTrigger("Interact")` gibi
-   bir çağrı eklemen tam bir "kesiyor/vuruyor" animasyonu tetikler
-   (şu an sadece yürüme senkronize, saldırı/kesme animasyon tetiği
-   opsiyonel bir satırla eklenebilir).
+   isteğe bağlı bir `Interact`/`Attack` trigger — isimler
+   `PlayerController.isWalkingParam` ile eşleşsin (Inspector'dan
+   değiştirebilirsin).
+4. `PlayerController`'ın `animator` alanına bu Animator'ı bağla. Yürüme
+   zaten otomatik senkronize; kesme/vuruşta da bir animasyon tetiklemek
+   istersen `TryAutoChop`/`TryAutoAttack` içine (ilgili miktar
+   eklendikten sonra) `animator.SetTrigger("Interact")` gibi tek satırlık
+   bir çağrı eklemen yeterli.
 5. Kamera için `IsometricCameraRig.cs`'i Main Camera'ya ekle
    (`xAngle=35`, `yAngle=45`) — Whiteout Survival tarzı izometrik açı.
    `CameraFollow.cs`'i de ekleyip karaktere bağlaman gerekiyor (3.
@@ -175,7 +199,10 @@ sırayla sürükle, her butonun `OnClick`'ine `ShowTab(i)` bağla (`i`:
 ekle, `panelRoot`/`messageText`/`restartButton` alanlarını bağla. Para 3
 gün üst üste eksiye düşerse (`GameManager.IsGameOver` true olur, gün
 döngüsü durur) bu panel otomatik açılır; **Yeniden Başla** butonu
-`GameManager.Restart()`'ı çağırıp ekonomiyi sıfırdan kurar.
+`GameManager.Restart()`'ı çağırır — bu, kayıtlı ekonomi + kule
+verilerini siler ve **sahneyi baştan yükler** (sadece bellekteki State'i
+sıfırlamak yerine), böylece o oturumda inşa edilmiş kuleler de gerçekten
+kaybolur ve orijinal inşaat alanları (`TowerBuildSite`) geri gelir.
 
 ## Kimlik kontrolü nasıl dengelendi
 
@@ -214,9 +241,16 @@ ise `GameManager.troubleStrikeChancePerDay`'den ayarlayabilirsin.
   Otomatik kayıt: her `autosaveIntervalSeconds` (varsayılan 30sn), uygulama
   arka plana atıldığında (`OnApplicationPause`) ve kapanırken
   (`OnApplicationQuit`). `GameManager.Awake()` başlarken önce kayıtlı
-  oyunu yükler, yoksa sıfırdan başlar. `Restart()` ve iflas anı kaydı
-  siler. Herhangi bir sahne/Canvas kurulumu gerektirmiyor, otomatik
-  çalışıyor.
+  oyunu yükler, yoksa sıfırdan başlar. `Restart()` her iki kaydı da silip
+  sahneyi yeniden yükler. Herhangi bir Canvas kurulumu gerektirmiyor,
+  otomatik çalışıyor.
+- **Okçu kuleleri ayrıca kaydediliyor:** `GameState`'in parçası değiller
+  (sahne nesneleri oldukları için) — `TowerPersistence.cs` aynı
+  otomatik-kayıt ritmiyle (kendi `OnApplicationPause`/`OnApplicationQuit`/
+  zamanlayıcısıyla) her kulenin `siteId`'sini, konumunu ve biriken etini
+  ayrı bir `PlayerPrefs` anahtarında saklar; sahne başlarken
+  `TowerBuildSite`'ları `siteId` ile eşleştirip o kuleleri yeniden inşa
+  eder.
 - İncelediğim diğer KaganAyten repoları (`RestaurantGame3DUnity`'nin
   malzeme taşıma/teslim deseni, `Vibe-Survivors`'ın dolaşan düşman
   yapay zekası) zaten kavramsal olarak `PlayerController`/`DropZone`/

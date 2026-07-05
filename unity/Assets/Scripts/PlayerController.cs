@@ -2,12 +2,15 @@ using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>
-/// Tap-to-move player character. Movement/pathfinding pattern adapted
-/// from KaganAyten's Click-MoveSource repo (raycast to ground ->
-/// NavMeshAgent.SetDestination -> animator "IsWalking" sync) so the
-/// character actually paths around trees/the hotel instead of walking
-/// through them. Chop/attack/carry logic layers on top for our
-/// gathering loop.
+/// Joystick-driven player character — no tap/raycast input at all, so it
+/// can never conflict with Canvas UI buttons (the earlier tap-to-move
+/// version could accidentally also move/attack when the player was just
+/// trying to press a UI button underneath the tap). Movement comes from
+/// a Joystick (camera-relative), while chopping/attacking happen
+/// automatically: walk within range of a tree/animal and it fires on its
+/// own cooldown, same idea as ArcherTower's auto-attack. Purchases
+/// (towers, etc.) happen the same way — walk into the marked zone and it
+/// resolves automatically (see TowerBuildSite/DropZone), no tap needed.
 ///
 /// Setup: Window > AI > Navigation, mark the ground plane Navigation
 /// Static + Walkable, mark tree/hotel/animal colliders Navigation
@@ -18,6 +21,11 @@ using UnityEngine.AI;
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerController : MonoBehaviour
 {
+    [Header("Hareket")]
+    public Joystick joystick;
+    public float moveSpeed = 3.5f;
+    public Camera cam;
+
     [Header("Toplama")]
     public float chopRange = 1.2f;
     public float attackRange = 1.2f;
@@ -27,23 +35,21 @@ public class PlayerController : MonoBehaviour
     public int carryCap = 20;
 
     [Header("Referanslar")]
-    public Camera cam;
     public Animator animator;
     public string isWalkingParam = "IsWalking";
-    public LayerMask tapMask = ~0;
 
     public int CarryWood { get; private set; }
     public int CarryMeat { get; private set; }
 
     NavMeshAgent agent;
-    ResourceTree pendingChop;
-    Animal pendingAttack;
     float lastChopAt = -10f;
     float lastAttackAt = -10f;
 
     void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
+        agent.speed = moveSpeed;
+        agent.updateRotation = false; // we rotate manually to face the joystick direction
         var rb = GetComponent<Rigidbody>();
         rb.isKinematic = true;
     }
@@ -55,40 +61,31 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        HandleInput();
-        ChaseAttackTarget();
+        Move();
         SyncAnimator();
-        TryChop();
-        TryAttack();
+        TryAutoChop();
+        TryAutoAttack();
     }
 
-    void HandleInput()
+    void Move()
     {
-        bool tapped = Input.GetMouseButtonDown(0);
-        if (!tapped && Input.touchCount > 0) tapped = Input.GetTouch(0).phase == TouchPhase.Began;
-        if (!tapped) return;
+        Vector2 input = joystick != null ? joystick.Direction : Vector2.zero;
+        if (input.sqrMagnitude < 0.01f)
+        {
+            agent.velocity = Vector3.zero;
+            return;
+        }
 
-        Vector3 screenPos = Input.touchCount > 0 ? (Vector3)Input.GetTouch(0).position : Input.mousePosition;
-        Ray ray = cam.ScreenPointToRay(screenPos);
+        Vector3 rawDir = new Vector3(input.x, 0f, input.y);
+        Vector3 moveDir = rawDir;
+        if (cam != null)
+        {
+            Quaternion camYaw = Quaternion.Euler(0f, cam.transform.eulerAngles.y, 0f);
+            moveDir = camYaw * rawDir;
+        }
 
-        if (!Physics.Raycast(ray, out RaycastHit hit, 500f, tapMask)) return;
-
-        var tree = hit.collider.GetComponent<ResourceTree>();
-        if (tree != null) { pendingChop = tree; pendingAttack = null; agent.SetDestination(tree.transform.position); return; }
-
-        var animal = hit.collider.GetComponent<Animal>();
-        if (animal != null && !animal.IsDead) { pendingAttack = animal; pendingChop = null; agent.SetDestination(animal.transform.position); return; }
-
-        pendingChop = null;
-        pendingAttack = null;
-        if (NavMesh.SamplePosition(hit.point, out NavMeshHit navHit, 2f, NavMesh.AllAreas))
-            agent.SetDestination(navHit.position);
-    }
-
-    void ChaseAttackTarget()
-    {
-        if (pendingAttack != null && !pendingAttack.IsDead)
-            agent.SetDestination(pendingAttack.transform.position);
+        agent.velocity = moveDir * moveSpeed;
+        transform.rotation = Quaternion.LookRotation(moveDir);
     }
 
     void SyncAnimator()
@@ -96,12 +93,13 @@ public class PlayerController : MonoBehaviour
         if (animator != null) animator.SetBool(isWalkingParam, agent.velocity.sqrMagnitude > 0.01f);
     }
 
-    void TryChop()
+    void TryAutoChop()
     {
-        if (pendingChop == null) return;
-        if (Vector3.Distance(transform.position, pendingChop.transform.position) > chopRange) return;
         if (Time.time - lastChopAt < chopCooldown) return;
         if (CarryWood >= carryCap) return;
+
+        var tree = FindNearest<ResourceTree>(chopRange);
+        if (tree == null) return;
 
         lastChopAt = Time.time;
         int amount = Mathf.Min(Random.Range(3, 7), carryCap - CarryWood);
@@ -110,22 +108,38 @@ public class PlayerController : MonoBehaviour
         GameManager.Instance.CheckAchievements();
     }
 
-    void TryAttack()
+    void TryAutoAttack()
     {
-        if (pendingAttack == null || pendingAttack.IsDead) { pendingAttack = null; return; }
-        if (Vector3.Distance(transform.position, pendingAttack.transform.position) > attackRange) return;
         if (Time.time - lastAttackAt < attackCooldown) return;
 
+        var animal = FindNearest<Animal>(attackRange, a => !a.IsDead);
+        if (animal == null) return;
+
         lastAttackAt = Time.time;
-        bool died = pendingAttack.TakeDamage(attackDamage);
+        bool died = animal.TakeDamage(attackDamage);
         if (died)
         {
             int amount = Mathf.Min(Random.Range(4, 9), carryCap - CarryMeat);
             CarryMeat += amount;
             GameManager.Instance.State.totalMeatCollected += amount;
             GameManager.Instance.CheckAchievements();
-            pendingAttack = null;
         }
+    }
+
+    T FindNearest<T>(float range, System.Func<T, bool> filter = null) where T : Component
+    {
+        var hits = Physics.OverlapSphere(transform.position, range);
+        T nearest = null;
+        float nearestDist = float.MaxValue;
+        foreach (var hit in hits)
+        {
+            var c = hit.GetComponent<T>();
+            if (c == null) continue;
+            if (filter != null && !filter(c)) continue;
+            float d = Vector3.Distance(transform.position, c.transform.position);
+            if (d < nearestDist) { nearestDist = d; nearest = c; }
+        }
+        return nearest;
     }
 
     public void DepositWood(int amount) => CarryWood -= amount;

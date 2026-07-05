@@ -69,20 +69,26 @@ public class RoomCardUI : MonoBehaviour
             statusText.text = "BOŞ";
         }
 
+        // A room can have an issue AND a pending applicant at the same time
+        // (issues roll independently of tenant/applicant state) — flag it in
+        // the status text since the action button below can only show one
+        // action, and the applicant decision is time-sensitive so it wins.
+        if (u.issue != null) statusText.text += $"  ⚠️ {IssueTypeData.Defs[u.issue.Value].Icon}";
+
         actionButton.onClick.RemoveAllListeners();
 
-        if (u.issue != null)
+        if (u.applicant != null)
+        {
+            actionButtonLabel.text = "Kimliğini İncele 🛂";
+            actionButton.interactable = true;
+            actionButton.onClick.AddListener(() => list.OpenGuestCheck(u));
+        }
+        else if (u.issue != null)
         {
             double cost = IssueTypeData.Defs[u.issue.Value].WoodCost;
             actionButtonLabel.text = $"Tamir Et ({cost:N0} 🪵)";
             actionButton.interactable = GameManager.Instance.State.wood >= cost;
             actionButton.onClick.AddListener(() => { GameManager.Instance.RepairUnit(unitId); list.Refresh(); });
-        }
-        else if (u.applicant != null)
-        {
-            actionButtonLabel.text = "Kimliğini İncele 🛂";
-            actionButton.interactable = true;
-            actionButton.onClick.AddListener(() => list.OpenGuestCheck(u));
         }
         else if (u.tenant != null)
         {

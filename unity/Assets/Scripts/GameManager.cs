@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Core idle-sim economic loop, ported from apartman-yoneticisi.html (Orman
@@ -78,12 +79,19 @@ public class GameManager : MonoBehaviour
 
     void OnApplicationQuit() => SaveSystem.Save(State);
 
-    /// <summary>Resets the economy and clears the game-over state. Call from a restart button.</summary>
+    /// <summary>
+    /// Clears both saves (economy + built towers) and reloads the scene
+    /// from scratch. A full scene reload (rather than just resetting
+    /// State in memory) is what actually clears any ArcherTowers built
+    /// during the failed run and restores their original TowerBuildSite
+    /// markers — those are destroyed permanently when built, so nothing
+    /// short of a reload brings them back. Call from a restart button.
+    /// </summary>
     public void Restart()
     {
-        IsGameOver = false;
-        State = CreateFreshState();
         SaveSystem.DeleteSave();
+        SaveSystem.DeleteTowerSave();
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
     GameState CreateFreshState()
@@ -398,14 +406,6 @@ public class GameManager : MonoBehaviour
         Log($"Oda {unitId}: {def.Icon} {u.tenant.name} otele yerleşti.");
         u.applicant = null;
         CheckAchievements();
-    }
-
-    public void RejectBooking(int unitId)
-    {
-        var u = State.units.First(x => x.id == unitId);
-        if (u.applicant == null) return;
-        Log($"Oda {unitId}: {u.applicant.name} rezervasyonu reddedildi.");
-        u.applicant = null;
     }
 
     /// <summary>

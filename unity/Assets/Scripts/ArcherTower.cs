@@ -24,7 +24,13 @@ public class ArcherTower : MonoBehaviour
     public int storedMeatCap = 30;
     public int StoredMeat { get; private set; }
 
+    /// <summary>Which TowerBuildSite this tower was built from — used by TowerPersistence to save/restore across sessions.</summary>
+    public string SiteId { get; set; }
+
     float lastFireAt = -10f;
+
+    /// <summary>Used by TowerPersistence when restoring a saved tower.</summary>
+    public void SetStoredMeat(int amount) => StoredMeat = Mathf.Clamp(amount, 0, storedMeatCap);
 
     void Update()
     {

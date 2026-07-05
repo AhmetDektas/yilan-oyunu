@@ -12,6 +12,7 @@ using UnityEngine;
 public static class SaveSystem
 {
     const string PrefsKey = "OrmanOtelSave_v1";
+    const string TowerPrefsKey = "OrmanOtelTowers_v1";
 
     [Serializable]
     public class SaveData
@@ -208,4 +209,36 @@ public static class SaveSystem
     }
 
     public static void DeleteSave() => PlayerPrefs.DeleteKey(PrefsKey);
+
+    // ---- Archer towers (separate from the economy save above: these are
+    // live scene objects — position + siteId + stored meat — not part of
+    // GameState) ----
+
+    [Serializable]
+    public class TowerSave
+    {
+        public string siteId;
+        public float x, y, z;
+        public int storedMeat;
+    }
+
+    [Serializable]
+    class TowerSaveList { public List<TowerSave> towers = new List<TowerSave>(); }
+
+    public static void SaveTowers(List<TowerSave> towers)
+    {
+        var wrapper = new TowerSaveList { towers = towers };
+        PlayerPrefs.SetString(TowerPrefsKey, JsonUtility.ToJson(wrapper));
+        PlayerPrefs.Save();
+    }
+
+    /// <returns>Saved tower list, or null if there's nothing saved yet.</returns>
+    public static List<TowerSave> LoadTowers()
+    {
+        if (!PlayerPrefs.HasKey(TowerPrefsKey)) return null;
+        var wrapper = JsonUtility.FromJson<TowerSaveList>(PlayerPrefs.GetString(TowerPrefsKey));
+        return wrapper.towers;
+    }
+
+    public static void DeleteTowerSave() => PlayerPrefs.DeleteKey(TowerPrefsKey);
 }

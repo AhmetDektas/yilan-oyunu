@@ -36,7 +36,7 @@ burada.
 
 **Harita (gerçek zamanlı toplama, NavMeshAgent tabanlı):**
 `PlayerController.cs`, `ResourceTree.cs`, `Animal.cs`, `DropZone.cs`,
-`IsometricCameraRig.cs`
+`IsometricCameraRig.cs`, `CameraFollow.cs`
 
 **Savunma:** `ArcherTower.cs` (otomatik saldıran, öldürdüğü hayvanlardan
 et biriktiren kule), `TowerBuildSite.cs` (parayla inşa edilen kule
@@ -76,7 +76,16 @@ TextMeshPro kullanıyorlar — Unity ilk `TMP_Text` referansı gördüğünde
    Kinematic yapman `Awake()` içinde otomatik oluyor). `Cam` alanına
    Main Camera'yı sürükle (boş bırakırsan otomatik `Camera.main`
    kullanır).
-8. **Okçu kulesi (opsiyonel, savunma):** Bir kule modeli/küp hazırla,
+8. **Kamera takibi:** Main Camera'ya hem `IsometricCameraRig`
+   (`xAngle=35`, `yAngle=45` — açıyı ayarlar) hem de `CameraFollow`
+   (karakteri takip eder) bileşenlerini ekle. Kamerayı Scene view'da elle
+   sürükleyip açıyı/uzaklığı beğendiğin yere getir, `CameraFollow.Target`
+   alanına karakteri sürükle, sonra Inspector'da `CameraFollow`
+   bileşeninin sağ üstündeki ⋮ menüsünden (veya bileşen başlığına sağ
+   tık) **"Offset'i Şu Anki Konumdan Hesapla"**'ya bas — kamera artık o
+   bağıl konumu koruyarak karakteri takip eder. `Target` boş bırakılırsa
+   sahnedeki `PlayerController`'ı otomatik bulur.
+9. **Okçu kulesi (opsiyonel, savunma):** Bir kule modeli/küp hazırla,
    `ArcherTower` bileşeni ekle (Collider = trigger, menzil kadar büyük).
    Bunu bir **prefab** yap (`Assets/Prefabs/ArcherTower`), sahneden sil —
    gerçek kuleler oyun içinde `TowerBuildSite` üzerinden inşa edilecek.
@@ -85,9 +94,9 @@ TextMeshPro kullanıyorlar — Unity ilk `TMP_Text` referansı gördüğünde
    Prefab` alanına az önce yaptığın prefabı sürükle, `Cost` belirle
    (varsayılan öneri: 4000₺). Bu marker'lara **Static işaretleme**,
    çünkü henüz inşa edilmediler.
-9. **NavMesh bake et:** Window → AI → Navigation → Bake sekmesi → Bake
-   butonu. Zemin Walkable, ağaç/otel/hayvanlar Not Walkable olarak
-   görünmeli (mavi alan = yürünebilir).
+10. **NavMesh bake et:** Window → AI → Navigation → Bake sekmesi → Bake
+    butonu. Zemin Walkable, ağaç/otel/hayvanlar Not Walkable olarak
+    görünmeli (mavi alan = yürünebilir).
 
 Bu kurulumla: haritaya dokun → karakter oraya **yol bularak** yürür;
 ağaca dokun → yürüyüp keser; hayvana dokun → kovalayıp balta ile
@@ -116,6 +125,9 @@ Küp yerine gerçek bir karakter modeli kullanmak için:
    opsiyonel bir satırla eklenebilir).
 5. Kamera için `IsometricCameraRig.cs`'i Main Camera'ya ekle
    (`xAngle=35`, `yAngle=45`) — Whiteout Survival tarzı izometrik açı.
+   `CameraFollow.cs`'i de ekleyip karaktere bağlaman gerekiyor (3.
+   bölümdeki 8. adıma bak) — yoksa kamera sabit kalır, karakter kadraj
+   dışına çıkar.
 
 ## 4) GameManager
 

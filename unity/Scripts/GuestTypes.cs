@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 
-public enum TenantTypeKey { Student, Family, Professional }
+public enum GuestTypeKey { Backpacker, Family, Business }
 
-public class TenantTypeDef
+public class GuestTypeDef
 {
     public string Label;
     public string Icon;
@@ -16,22 +16,22 @@ public class TenantTypeDef
     public double Patience;
 }
 
-public static class TenantTypes
+public static class GuestTypes
 {
-    public static readonly Dictionary<TenantTypeKey, TenantTypeDef> Defs = new Dictionary<TenantTypeKey, TenantTypeDef>
+    public static readonly Dictionary<GuestTypeKey, GuestTypeDef> Defs = new Dictionary<GuestTypeKey, GuestTypeDef>
     {
-        { TenantTypeKey.Student, new TenantTypeDef {
-            Label = "Öğrenci", Icon = "🎓", Weight = 35,
+        { GuestTypeKey.Backpacker, new GuestTypeDef {
+            Label = "Sırt Çantalı Gezgin", Icon = "🎒", Weight = 35,
             RentFactorMin = 0.65, RentFactorMax = 0.95, BaseHappiness = 78,
             RentSensitivity = 1.4, IssueSensitivity = 0.6, Patience = 0.75,
         } },
-        { TenantTypeKey.Family, new TenantTypeDef {
+        { GuestTypeKey.Family, new GuestTypeDef {
             Label = "Aile", Icon = "👪", Weight = 40,
             RentFactorMin = 0.9, RentFactorMax = 1.25, BaseHappiness = 70,
             RentSensitivity = 1.0, IssueSensitivity = 1.3, Patience = 1.0,
         } },
-        { TenantTypeKey.Professional, new TenantTypeDef {
-            Label = "Profesyonel", Icon = "💼", Weight = 25,
+        { GuestTypeKey.Business, new GuestTypeDef {
+            Label = "İş İnsanı", Icon = "💼", Weight = 25,
             RentFactorMin = 1.1, RentFactorMax = 1.6, BaseHappiness = 62,
             RentSensitivity = 0.6, IssueSensitivity = 1.6, Patience = 1.3,
         } },
@@ -39,7 +39,7 @@ public static class TenantTypes
 
     static readonly System.Random Rng = new System.Random();
 
-    public static TenantTypeKey PickRandom()
+    public static GuestTypeKey PickRandom()
     {
         int totalWeight = 0;
         foreach (var d in Defs.Values) totalWeight += d.Weight;
@@ -49,6 +49,6 @@ public static class TenantTypes
             if (r < kv.Value.Weight) return kv.Key;
             r -= kv.Value.Weight;
         }
-        return TenantTypeKey.Family;
+        return GuestTypeKey.Family;
     }
 }

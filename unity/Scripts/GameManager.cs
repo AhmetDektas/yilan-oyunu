@@ -3,9 +3,12 @@ using System.Linq;
 using UnityEngine;
 
 /// <summary>
-/// Core idle-sim loop, ported from apartman-yoneticisi.html. Attach to a single
-/// empty GameObject in the scene (e.g. "GameManager"). UI/scene code should
-/// subscribe to OnDayProcessed / OnLog rather than poll every frame.
+/// Core idle-sim economic loop, ported from apartman-yoneticisi.html (Orman
+/// Otel build). Attach to a single empty GameObject in the scene (e.g.
+/// "GameManager"). The real-time gathering map (PlayerController, Animal,
+/// ResourceTree, DropZone) feeds wood/meat into this via DepositWood /
+/// DepositMeat; everything else (rooms, staff, amenities, day tick) runs on
+/// its own timer independent of the live map.
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -17,8 +20,10 @@ public class GameManager : MonoBehaviour
     [Header("Ekonomi")]
     public int startingUnitCount = 8;
     public double startingMoney = 6000;
+    public double startingWood = 60;
     public double baseRent = 3200;
     public double dailyExpenseBase = 250;
+    public double mealPrice = 90;
 
     public GameState State { get; private set; }
 
@@ -26,7 +31,7 @@ public class GameManager : MonoBehaviour
     public event Action<string> OnLog;
 
     readonly System.Random rng = new System.Random();
-    static readonly string[] TenantNames = {
+    static readonly string[] GuestNames = {
         "Ahmet Yılmaz", "Ayşe Kaya", "Mehmet Demir", "Fatma Şahin", "Ali Çelik",
         "Zeynep Arslan", "Mustafa Doğan", "Emine Aydın", "Hüseyin Öztürk", "Hatice Yıldız",
     };
@@ -50,9 +55,9 @@ public class GameManager : MonoBehaviour
 
     GameState CreateFreshState()
     {
-        var s = new GameState { money = startingMoney, reputation = 50 };
+        var s = new GameState { money = startingMoney, wood = startingWood, reputation = 50 };
         for (int i = 0; i < startingUnitCount; i++)
-            s.units.Add(new ApartmentUnit { id = i + 1, rent = baseRent, condition = 90 + rng.Next(10) });
+            s.units.Add(new RoomUnit { id = i + 1, rent = baseRent, condition = 90 + rng.Next(10) });
         foreach (StaffKey k in Enum.GetValues(typeof(StaffKey))) s.staff[k] = new StaffMember();
         foreach (UpgradeKey k in Enum.GetValues(typeof(UpgradeKey))) s.upgrades[k] = 0;
         return s;
@@ -81,6 +86,14 @@ public class GameManager : MonoBehaviour
             StaffSystem.GainXp(kv.Value, 8);
         }
 
+        var avci = State.staff[StaffKey.Avci];
+        if (avci.Hired)
+        {
+            double y = StaffSystem.AvciYield(avci.Level);
+            State.meat += y;
+            State.totalMeatCollected += y;
+        }
+
         double decayMul = DecayMultiplier();
         double issueMul = IssueChanceMultiplier();
         double rentMul = RentMultiplier();
@@ -96,20 +109,38 @@ public class GameManager : MonoBehaviour
                     TriggerIssue(u);
             }
 
-            if (u.tenant != null) ProcessTenant(u, rentMul, ref income);
-            else if (u.applicant == null) MaybeSpawnApplicant(u);
+            if (u.tenant != null) ProcessGuest(u, rentMul, ref income);
+            else if (u.applicant == null) MaybeSpawnBooking(u);
+        }
+
+        // Yemekhane: convert stocked meat into meals sold, scaled by occupancy.
+        int occupied = State.units.Count(u => u.tenant != null);
+        int mealDemand = Math.Max(1, occupied);
+        int mealsSold = (int)Math.Min(Math.Floor(State.meat), mealDemand);
+        if (mealsSold > 0)
+        {
+            State.meat -= mealsSold;
+            income += mealsSold * mealPrice;
+        }
+        if (mealsSold < mealDemand)
+        {
+            Log("Yemekhanede et sıkıntısı yaşandı, bazı misafirler aç kaldı.");
+            State.reputation = Math.Max(0, State.reputation - 1);
         }
 
         State.money += income - expenses;
         State.totalEarned += income;
         Log($"Gün {State.day} kapandı: +{income:N0}₺ gelir, -{expenses:N0}₺ gider.");
 
+        if (rng.NextDouble() < 0.15) TriggerRandomEvent();
+
         State.badMoneyStreak = State.money < 0 ? State.badMoneyStreak + 1 : 0;
         State.day++;
+        CheckAchievements();
         OnDayProcessed?.Invoke();
     }
 
-    void TriggerIssue(ApartmentUnit u)
+    void TriggerIssue(RoomUnit u)
     {
         var issue = (IssueType)rng.Next(Enum.GetValues(typeof(IssueType)).Length);
         var info = IssueTypeData.Defs[issue];
@@ -119,20 +150,19 @@ public class GameManager : MonoBehaviour
         {
             u.condition = Math.Min(100, u.condition + StaffSystem.KapiciRestore(kapici.Level));
             StaffSystem.GainXp(kapici, 6);
-            Log($"Daire {u.id}: {info.Icon} {info.Label} oluştu, kapıcı hemen onardı.");
-            CharacterWalker.Instance?.WalkToUnit(u.id, "🔧");
+            Log($"Oda {u.id}: {info.Icon} {info.Label} oluştu, teknisyen hemen onardı.");
         }
         else
         {
             u.issue = issue;
-            Log($"Daire {u.id}: {info.Icon} {info.Label} oluştu!");
+            Log($"Oda {u.id}: {info.Icon} {info.Label} oluştu!");
             if (u.tenant != null) u.tenant.happiness -= 10;
         }
     }
 
-    void ProcessTenant(ApartmentUnit u, double rentMul, ref double income)
+    void ProcessGuest(RoomUnit u, double rentMul, ref double income)
     {
-        var type = TenantTypes.Defs[u.tenant.type];
+        var type = GuestTypes.Defs[u.tenant.type];
 
         if (u.rent > baseRent * 1.15) u.tenant.happiness -= 3 * type.RentSensitivity;
         else if (u.rent < baseRent * 0.9) u.tenant.happiness += 2;
@@ -148,31 +178,30 @@ public class GameManager : MonoBehaviour
         else
         {
             u.tenant.unpaidStreak++;
-            Log($"Daire {u.id}: {u.tenant.name} kirayı ödemedi.");
+            Log($"Oda {u.id}: {u.tenant.name} ücreti ödemedi.");
         }
 
-        var guvenlik = State.staff[StaffKey.Guvenlik];
-        double gFactor = guvenlik.Hired ? StaffSystem.GuvenlikFactor(guvenlik.Level) : 1;
+        double gFactor = GuvenlikFactor();
         double moveOutChance = Math.Min(1, gFactor / type.Patience);
         if (u.tenant.happiness <= 0 && rng.NextDouble() < moveOutChance)
         {
-            Log($"Daire {u.id}: {u.tenant.name} memnuniyetsizlikten taşındı.");
+            Log($"Oda {u.id}: {u.tenant.name} memnuniyetsizlikten ayrıldı.");
             State.reputation = Math.Max(0, State.reputation - 2);
             u.tenant = null;
         }
     }
 
-    void MaybeSpawnApplicant(ApartmentUnit u)
+    void MaybeSpawnBooking(RoomUnit u)
     {
         double chance = Math.Min(0.85, 0.15 + State.reputation / 400 + ApplicantBonus());
         if (rng.NextDouble() >= chance) return;
 
-        var type = TenantTypes.PickRandom();
-        var def = TenantTypes.Defs[type];
+        var type = GuestTypes.PickRandom();
+        var def = GuestTypes.Defs[type];
         double maxRent = Math.Round(u.rent * (def.RentFactorMin + rng.NextDouble() * (def.RentFactorMax - def.RentFactorMin)));
-        string name = TenantNames[rng.Next(TenantNames.Length)];
-        u.applicant = new Applicant { name = name, type = type, maxRent = maxRent };
-        Log($"Daire {u.id}: {def.Icon} {name} ({def.Label}) başvurdu.");
+        string name = GuestNames[rng.Next(GuestNames.Length)];
+        u.applicant = new Booking { name = name, type = type, maxRent = maxRent };
+        Log($"Oda {u.id}: {def.Icon} {name} ({def.Label}) rezervasyon yaptı.");
     }
 
     double RentMultiplier() => 1 + 0.05 * State.upgrades[UpgradeKey.Rent];
@@ -188,24 +217,112 @@ public class GameManager : MonoBehaviour
 
     double IssueChanceMultiplier() => Math.Max(0.25, 1 - 0.06 * State.upgrades[UpgradeKey.Insulation]);
 
-    // ---- Player actions ----
+    double BadEventMultiplier()
+    {
+        double m = 1 - 0.06 * State.upgrades[UpgradeKey.Ad];
+        var guvenlik = State.staff[StaffKey.Guvenlik];
+        if (guvenlik.Hired) m *= StaffSystem.GuvenlikFactor(guvenlik.Level);
+        return Math.Max(0.2, m);
+    }
 
-    public void AcceptApplicant(int unitId)
+    /// <summary>Security staff's mitigation factor (1 = no mitigation, lower = safer). Used by Animal for raid odds/severity.</summary>
+    public double GuvenlikFactor()
+    {
+        var g = State.staff[StaffKey.Guvenlik];
+        return g.Hired ? StaffSystem.GuvenlikFactor(g.Level) : 1.0;
+    }
+
+    void TriggerRandomEvent()
+    {
+        double avgCondition = State.units.Average(u => u.condition);
+        double bMul = BadEventMultiplier();
+        int roll = rng.Next(4);
+        switch (roll)
+        {
+            case 0:
+                if (avgCondition < 55)
+                {
+                    double fine = Math.Round(rng.Next(500, 1501) * bMul);
+                    State.money -= fine;
+                    Log($"🏛️ Sağlık denetimi: otel bakımsız bulundu, {fine:N0}₺ ceza kesildi.");
+                }
+                else
+                {
+                    State.reputation = Math.Min(100, State.reputation + 3);
+                    Log("🏛️ Sağlık denetimi başarıyla geçildi, itibarın arttı.");
+                }
+                break;
+            case 1:
+                State.reputation = Math.Min(100, State.reputation + 5);
+                Log("📱 Gezginler otelden övgüyle bahsetti! İtibar arttı.");
+                break;
+            case 2:
+                double bonus = rng.Next(30, 81);
+                State.wood += bonus;
+                State.totalWoodChopped += bonus;
+                Log($"🪓 Ormanda değerli bir kereste yığını buldun: +{bonus:N0} odun.");
+                break;
+            default:
+                State.reputation = Math.Max(0, State.reputation - 4 * bMul);
+                Log("📝 Misafirlerden toplu şikayet geldi. İtibar düştü.");
+                break;
+        }
+    }
+
+    /// <summary>Called by Animal when it reaches the hotel unopposed.</summary>
+    public void AnimalRaid()
+    {
+        double g = GuvenlikFactor();
+        var u = State.units[rng.Next(State.units.Count)];
+        u.condition = Math.Max(0, u.condition - rng.Next(10, 21) * g);
+        int stolen = (int)Math.Min(State.meat, Math.Round(rng.Next(5, 16) * g));
+        State.meat -= stolen;
+        Log($"🐗 Bir hayvan otele saldırdı! Oda {u.id} hasar aldı, {stolen} et çalındı.");
+    }
+
+    public void DepositWood(int amount)
+    {
+        State.wood += amount;
+        Log($"🪵 Depoya {amount} odun bırakıldı.");
+    }
+
+    public void DepositMeat(int amount)
+    {
+        State.meat += amount;
+        Log($"🍽️ Yemekhaneye {amount} et bırakıldı.");
+    }
+
+    public void CheckAchievements()
+    {
+        foreach (var a in Achievements.All)
+        {
+            if (State.achievements.Contains(a.Id)) continue;
+            if (!a.Check(State)) continue;
+            State.achievements.Add(a.Id);
+            if (a.RewardMoney > 0) { State.money += a.RewardMoney; State.totalEarned += a.RewardMoney; }
+            if (a.RewardReputation > 0) State.reputation = Math.Min(100, State.reputation + a.RewardReputation);
+            Log($"🏆 Başarım kazanıldı: {a.Label}!");
+        }
+    }
+
+    // ---- Player actions (room management UI) ----
+
+    public void AcceptBooking(int unitId)
     {
         var u = State.units.First(x => x.id == unitId);
         if (u.applicant == null || u.rent > u.applicant.maxRent) return;
-        var def = TenantTypes.Defs[u.applicant.type];
-        u.tenant = new Tenant { name = u.applicant.name, type = u.applicant.type, happiness = def.BaseHappiness };
-        Log($"Daire {unitId}: {def.Icon} {u.tenant.name} taşındı.");
+        var def = GuestTypes.Defs[u.applicant.type];
+        u.tenant = new Guest { name = u.applicant.name, type = u.applicant.type, happiness = def.BaseHappiness };
+        Log($"Oda {unitId}: {def.Icon} {u.tenant.name} otele yerleşti.");
         u.applicant = null;
-        CharacterWalker.Instance?.WalkToUnit(unitId, "🔑");
+        CheckAchievements();
     }
 
-    public void RejectApplicant(int unitId)
+    public void RejectBooking(int unitId)
     {
         var u = State.units.First(x => x.id == unitId);
         if (u.applicant == null) return;
-        Log($"Daire {unitId}: {u.applicant.name} reddedildi.");
+        Log($"Oda {unitId}: {u.applicant.name} rezervasyonu reddedildi.");
         u.applicant = null;
     }
 
@@ -213,14 +330,46 @@ public class GameManager : MonoBehaviour
     {
         var u = State.units.First(x => x.id == unitId);
         if (u.issue == null) return;
-        double cost = IssueTypeData.Defs[u.issue.Value].Cost;
-        if (State.money < cost) return;
-        State.money -= cost;
+        double cost = IssueTypeData.Defs[u.issue.Value].WoodCost;
+        if (State.wood < cost) return;
+        State.wood -= cost;
         u.condition = Math.Min(100, u.condition + 25);
         if (u.tenant != null) u.tenant.happiness = Math.Min(100, u.tenant.happiness + 15);
-        Log($"Daire {unitId}: {IssueTypeData.Defs[u.issue.Value].Label} giderildi.");
+        Log($"Oda {unitId}: {IssueTypeData.Defs[u.issue.Value].Label} giderildi.");
         u.issue = null;
-        CharacterWalker.Instance?.WalkToUnit(unitId, "🔧");
+    }
+
+    public void EvictGuest(int unitId)
+    {
+        var u = State.units.First(x => x.id == unitId);
+        if (u.tenant == null) return;
+        Log($"Oda {unitId}: {u.tenant.name} otelden çıkarıldı.");
+        State.reputation = Math.Max(0, State.reputation - 3);
+        u.tenant = null;
+    }
+
+    public void AdjustRent(int unitId, double delta)
+    {
+        var u = State.units.First(x => x.id == unitId);
+        u.rent = Math.Max(500, u.rent + delta);
+        if (u.tenant != null) u.tenant.happiness += delta > 0 ? -8 : 4;
+    }
+
+    public double ExpandMoneyCost() => Math.Round(2000 * Math.Pow(State.units.Count / 2.0, 1.6));
+    public double ExpandWoodCost() => Math.Round(100 * Math.Pow(State.units.Count / 2.0, 1.3));
+    public const int MaxUnits = 20;
+
+    public void ExpandHotel()
+    {
+        double moneyCost = ExpandMoneyCost(), woodCost = ExpandWoodCost();
+        if (State.units.Count >= MaxUnits || State.money < moneyCost || State.wood < woodCost) return;
+        State.money -= moneyCost;
+        State.wood -= woodCost;
+        int startId = State.units.Count + 1;
+        for (int i = 0; i < 2 && State.units.Count < MaxUnits; i++)
+            State.units.Add(new RoomUnit { id = startId + i, rent = baseRent, condition = 100 });
+        Log($"Yeni oda inşa edildi: Oda {startId}-{startId + 1}.");
+        CheckAchievements();
     }
 
     public void HireStaff(StaffKey key)
@@ -233,5 +382,17 @@ public class GameManager : MonoBehaviour
         s.Level = 1;
         s.Xp = 0;
         Log($"{def.Label} işe alındı.");
+        CheckAchievements();
+    }
+
+    public void BuyAmenity(UpgradeKey key)
+    {
+        var def = AmenitySystem.Defs[key];
+        if (State.upgrades[key] >= def.Max) return;
+        double cost = AmenitySystem.Cost(State, key);
+        if (State.money < cost) return;
+        State.money -= cost;
+        State.upgrades[key]++;
+        Log($"{def.Label} seviye {State.upgrades[key]} oldu.");
     }
 }

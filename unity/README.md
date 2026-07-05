@@ -42,12 +42,17 @@ burada.
 `ResourceTree.cs`, `Animal.cs`, `DropZone.cs`, `IsometricCameraRig.cs`,
 `CameraFollow.cs`
 
-**Savunma:** `ArcherTower.cs` (otomatik saldıran, öldürdüğü hayvanlardan
-et biriktiren kule), `TowerBuildSite.cs` (parayla inşa edilen kule
-alanı), `TowerPersistence.cs` (kuleleri oturumlar arasında kaydeder/geri
-yükler). "Çit & Duvar" ise ayrı bir script değil — mevcut Olanaklar
-(`AmenitySystem`/`AmenityListUI`) sistemine eklenen bir seviye, hayvan
-yaklaşma ihtimalini ve saldırı hasarını azaltıyor.
+**Savunma:** `Wall.cs` — canı (HP) olan **gerçek fiziksel duvar**.
+Yaklaşan hayvanlar oteli değil önce en yakın canlı duvarı hedefler, ona
+saldırır; duvar yıkılırsa (HP 0) o bölgeden geçip otele ulaşabilirler.
+Yıkık duvarın yanına odun taşıyarak yürümek otomatik tamir eder (Depo/
+Yemekhane gibi, dokunma gerekmez). `ArcherTower.cs` (otomatik saldıran,
+öldürdüğü hayvanlardan et biriktiren kule), `TowerBuildSite.cs` (parayla
+inşa edilen kule alanı), `TowerPersistence.cs` (kuleleri oturumlar
+arasında kaydeder/geri yükler). Olanaklar'daki "Çit & Duvar" seviyesi
+ise `Wall.cs`'ten ayrı, tamamlayıcı bir katman — hayvanların hiç
+yaklaşmaya **karar verme ihtimalini** ve otele ulaştıklarında verdikleri
+hasarı azaltan soyut bir çarpan (`AmenitySystem`/`AmenityListUI`).
 
 **Canvas UI:** `HUDBinder.cs`, `RoomListUI.cs`, `StaffListUI.cs`,
 `AmenityListUI.cs`, `AchievementListUI.cs`, `GuestCheckPanel.cs`,
@@ -74,6 +79,24 @@ TextMeshPro kullanıyorlar — Unity ilk `TMP_Text` referansı gördüğünde
    - `Hotel Front Marker` → 3. adımdaki `HotelFront` transformunu sürükle
    - `Wander Area Min/Max` → haritanın sınırlarına göre bir dikdörtgen
      (x/z koordinatları, y'yi zeminin yüksekliğinde sabit tut)
+
+   Not: hayvan "saldırı" moduna geçtiğinde önce otele değil, en yakın
+   **canlı duvara** (aşağıdaki 5b) yönelir — duvar yoksa/hepsi yıkıksa
+   doğrudan `Hotel Front Marker`'a gidip yağma yapar.
+5b. **Duvarlar:** Otelin çevresini çevreleyecek şekilde birkaç küp/model
+   (duvar segmenti) yerleştir. Her birine şunları ekle:
+   - `Wall.cs` bileşeni
+   - `NavMeshObstacle` (Carve **açık**) — duvar sağlamken yolu gerçekten
+     kapatır, yıkılınca (`hp <= 0`) `Wall.cs` bunu otomatik kapatır ve
+     hayvanlar oradan geçebilir hale gelir (NavMesh'i yeniden bake etmene
+     gerek yok)
+   - Trigger **olmayan** bir `Collider` — hayvanların/oyuncunun
+     `Physics.OverlapSphere` ile duvarı bulabilmesi için
+   Bu duvarlar arasında boşluk bırakma; hayvanların "hiç duvar yok"
+   sayıp direkt otele gitmemesi için otel çevresini olabildiğince
+   kapatacak şekilde diz. Yıkılan bir duvarın yanına odun taşıyarak
+   yürümek onu otomatik tamir eder (Depo/Yemekhane gibi, dokunma
+   gerekmez — bkz. `Wall.repairWoodCost`).
 6. **Depo & Yemekhane:** iki küp/model, alt köşelere yerleştir. Her
    birine `DropZone` bileşeni ekle (`Type = Wood` / `Type = Meat`), ve
    Collider'da **Is Trigger** işaretli olsun.
@@ -278,12 +301,21 @@ ise `GameManager.troubleStrikeChancePerDay`'den ayarlayabilirsin.
   yapay zekası) zaten kavramsal olarak `PlayerController`/`DropZone`/
   `Animal` tasarımımıza yansıdı; `Unity-Isometric-Procedural-Map-Generator`
   çok az belgelenmiş (2 commit) olduğu için şimdilik entegre etmedim.
-- **Duvar/okçu kulesi savunma sistemi var:** "Çit & Duvar" Olanaklar
-  sekmesinde para ile seviye atlayan bir savunma çarpanı (hayvan yaklaşma
-  ihtimalini ve saldırı hasarını azaltır, `GuvenlikFactor()` ile aynı
-  mantıkta çarpımsal olarak birleşiyor). Okçu kuleleri (`ArcherTower`)
-  ise haritada `TowerBuildSite`'a yürüyüp parayla inşa edilen, menzilindeki
-  hayvanlara otomatik ateş eden, öldürdüğü hayvanlardan et biriktiren
-  yapılar — biriken eti almak için kulenin yanına yürüyüp beklemen
-  yeterli (Depo/Yemekhane'nin tersi yönde çalışan aynı "git ve al"
-  ritmi).
+- **Fiziksel duvar + savunma çarpanı birlikte çalışıyor:** `Wall.cs`
+  gerçek bir engel — canı (HP) var, `NavMeshObstacle` ile yolu fiilen
+  kapatıyor. Saldırı moduna geçen bir hayvan önce en yakın **canlı**
+  duvarı hedefleyip ona vuruyor (`Animal.FindNearestLiveWall()`); duvar
+  yıkılınca (`hp <= 0`) o bölgeden geçip otele ulaşabiliyor. Yıkık bir
+  duvarın yanına odun taşıyarak yürümek onu otomatik tamir ediyor
+  (dokunma gerekmez, Depo/Yemekhane ile aynı mantık). Bunun yanında
+  "Çit & Duvar" Olanaklar sekmesinde para ile seviye atlayan **ayrı,
+  soyut** bir savunma çarpanı da var (`AmenitySystem.WallFactor` —
+  hayvanın hiç saldırı moduna **karar verme ihtimalini** ve otele
+  ulaştığında verdiği yağma hasarını azaltır, `GuvenlikFactor()` ile aynı
+  mantıkta çarpımsal olarak birleşiyor) — yani iki katman tamamlayıcı:
+  biri "hiç gelmesin", diğeri "gelirse önce duvarı kırsın". Okçu
+  kuleleri (`ArcherTower`) ise haritada `TowerBuildSite`'a yürüyüp
+  parayla inşa edilen, menzilindeki hayvanlara otomatik ateş eden,
+  öldürdüğü hayvanlardan et biriktiren yapılar — biriken eti almak için
+  kulenin yanına yürüyüp beklemen yeterli (Depo/Yemekhane'nin tersi
+  yönde çalışan aynı "git ve al" ritmi).

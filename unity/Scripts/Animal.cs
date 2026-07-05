@@ -54,12 +54,13 @@ public class Animal : MonoBehaviour
         if (IsDead) return;
 
         double gFactor = GameManager.Instance.GuvenlikFactor();
+        double wFactor = GameManager.Instance.WallFactor();
         agent.speed = state == AnimalState.Approach ? approachSpeed : wanderSpeed;
 
         if (Time.time >= nextDecisionAt)
         {
             nextDecisionAt = Time.time + Random.Range(decisionIntervalMin, decisionIntervalMax);
-            if (state == AnimalState.Wander && Random.value < approachChance * gFactor)
+            if (state == AnimalState.Wander && Random.value < approachChance * gFactor * wFactor)
             {
                 state = AnimalState.Approach;
                 if (hotelFrontMarker != null) agent.SetDestination(hotelFrontMarker.position);

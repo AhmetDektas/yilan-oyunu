@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-public enum UpgradeKey { Rent, Applicant, Insulation, Ad }
+public enum UpgradeKey { Rent, Applicant, Insulation, Ad, Wall }
 
 [Serializable]
 public class GameState

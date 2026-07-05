@@ -34,6 +34,12 @@ burada.
 `PlayerController.cs`, `ResourceTree.cs`, `Animal.cs`, `DropZone.cs`,
 `IsometricCameraRig.cs`
 
+**Savunma:** `ArcherTower.cs` (otomatik saldıran, öldürdüğü hayvanlardan
+et biriktiren kule), `TowerBuildSite.cs` (parayla inşa edilen kule
+alanı). "Çit & Duvar" ise ayrı bir script değil — mevcut Olanaklar
+(`AmenitySystem`/`AmenityListUI`) sistemine eklenen bir seviye, hayvan
+yaklaşma ihtimalini ve saldırı hasarını azaltıyor.
+
 **Canvas UI:** `HUDBinder.cs`, `RoomListUI.cs`, `StaffListUI.cs`,
 `AmenityListUI.cs`, `AchievementListUI.cs`, `GuestCheckPanel.cs`,
 `GameOverPanel.cs`, `TabController.cs`
@@ -66,14 +72,27 @@ TextMeshPro kullanıyorlar — Unity ilk `TMP_Text` referansı gördüğünde
    Kinematic yapman `Awake()` içinde otomatik oluyor). `Cam` alanına
    Main Camera'yı sürükle (boş bırakırsan otomatik `Camera.main`
    kullanır).
-8. **NavMesh bake et:** Window → AI → Navigation → Bake sekmesi → Bake
+8. **Okçu kulesi (opsiyonel, savunma):** Bir kule modeli/küp hazırla,
+   `ArcherTower` bileşeni ekle (Collider = trigger, menzil kadar büyük).
+   Bunu bir **prefab** yap (`Assets/Prefabs/ArcherTower`), sahneden sil —
+   gerçek kuleler oyun içinde `TowerBuildSite` üzerinden inşa edilecek.
+   Otelin çevresine 1-3 tane boş kutu/marker yerleştir, her birine
+   `TowerBuildSite` bileşeni ekle (Collider = trigger), `Archer Tower
+   Prefab` alanına az önce yaptığın prefabı sürükle, `Cost` belirle
+   (varsayılan öneri: 4000₺). Bu marker'lara **Static işaretleme**,
+   çünkü henüz inşa edilmediler.
+9. **NavMesh bake et:** Window → AI → Navigation → Bake sekmesi → Bake
    butonu. Zemin Walkable, ağaç/otel/hayvanlar Not Walkable olarak
    görünmeli (mavi alan = yürünebilir).
 
 Bu kurulumla: haritaya dokun → karakter oraya **yol bularak** yürür;
 ağaca dokun → yürüyüp keser; hayvana dokun → kovalayıp balta ile
 saldırır; taşınan odun/et kapasiteyi (`carryCap`, varsayılan 20)
-doldurunca Depo/Yemekhane'ye yürüyüp bırakman gerekir.
+doldurunca Depo/Yemekhane'ye yürüyüp bırakman gerekir. Bir kule inşa
+alanına yürürsen (parayı karşılarsan) otomatik olarak orada bir okçu
+kulesi doğar; kule kendi kendine menzilindeki hayvanlara ateş eder,
+öldürdüğü hayvanlardan biriken eti almak için kulenin yanına yürümen
+yeterli.
 
 ### 3D karakter + Mixamo eklemek istersen
 
@@ -187,7 +206,12 @@ ise `GameManager.troubleStrikeChancePerDay`'den ayarlayabilirsin.
   yapay zekası) zaten kavramsal olarak `PlayerController`/`DropZone`/
   `Animal` tasarımımıza yansıdı; `Unity-Isometric-Procedural-Map-Generator`
   çok az belgelenmiş (2 commit) olduğu için şimdilik entegre etmedim.
-- Duvar/okçu kulesi savunma yapıları henüz yok — istersen bir sonraki
-  adımda `Wall.cs`/`ArcherTower.cs` ekleriz (kule, menzildeki hayvanlara
-  periyodik hasar verir, `GuvenlikFactor()` ile aynı mantığa entegre
-  olur).
+- **Duvar/okçu kulesi savunma sistemi var:** "Çit & Duvar" Olanaklar
+  sekmesinde para ile seviye atlayan bir savunma çarpanı (hayvan yaklaşma
+  ihtimalini ve saldırı hasarını azaltır, `GuvenlikFactor()` ile aynı
+  mantıkta çarpımsal olarak birleşiyor). Okçu kuleleri (`ArcherTower`)
+  ise haritada `TowerBuildSite`'a yürüyüp parayla inşa edilen, menzilindeki
+  hayvanlara otomatik ateş eden, öldürdüğü hayvanlardan et biriktiren
+  yapılar — biriken eti almak için kulenin yanına yürüyüp beklemen
+  yeterli (Depo/Yemekhane'nin tersi yönde çalışan aynı "git ve al"
+  ritmi).

@@ -130,4 +130,13 @@ public class PlayerController : MonoBehaviour
 
     public void DepositWood(int amount) => CarryWood -= amount;
     public void DepositMeat(int amount) => CarryMeat -= amount;
+
+    /// <summary>Collect meat into carry (e.g. from an ArcherTower's stash). Returns how much actually fit.</summary>
+    public int AddCarryMeat(int amount)
+    {
+        int space = carryCap - CarryMeat;
+        int added = Mathf.Min(amount, space);
+        CarryMeat += added;
+        return added;
+    }
 }

@@ -302,6 +302,9 @@ public class GameManager : MonoBehaviour
         return g.Hired ? StaffSystem.GuvenlikFactor(g.Level) : 1.0;
     }
 
+    /// <summary>Wall/fence amenity's mitigation factor (1 = no mitigation, lower = safer). Used by Animal for approach odds and here for raid severity.</summary>
+    public double WallFactor() => AmenitySystem.WallFactor(State.upgrades[UpgradeKey.Wall]);
+
     void TriggerRandomEvent()
     {
         double avgCondition = State.units.Average(u => u.condition);
@@ -342,12 +345,21 @@ public class GameManager : MonoBehaviour
     /// <summary>Called by Animal when it reaches the hotel unopposed.</summary>
     public void AnimalRaid()
     {
-        double g = GuvenlikFactor();
+        double mitigation = GuvenlikFactor() * WallFactor();
         var u = State.units[rng.Next(State.units.Count)];
-        u.condition = Math.Max(0, u.condition - rng.Next(10, 21) * g);
-        int stolen = (int)Math.Min(State.meat, Math.Round(rng.Next(5, 16) * g));
+        u.condition = Math.Max(0, u.condition - rng.Next(10, 21) * mitigation);
+        int stolen = (int)Math.Min(State.meat, Math.Round(rng.Next(5, 16) * mitigation));
         State.meat -= stolen;
         Log($"🐗 Bir hayvan otele saldırdı! Oda {u.id} hasar aldı, {stolen} et çalındı.");
+    }
+
+    /// <summary>Called by TowerBuildSite when the player walks in with enough money.</summary>
+    public bool TryBuildArcherTower(double cost)
+    {
+        if (State.money < cost) return false;
+        State.money -= cost;
+        Log($"🏹 Yeni bir okçu kulesi inşa edildi ({cost:N0}₺).");
+        return true;
     }
 
     public void DepositWood(int amount)

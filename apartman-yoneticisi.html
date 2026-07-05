@@ -5,68 +5,126 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Apartman Yöneticisi</title>
 <style>
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body {
-    margin: 0;
-    background: #1b1f27;
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; height: 100%;
+    background: #0f1117;
     color: #eee;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     overscroll-behavior: none;
   }
-  #app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+  body {
+    background:
+      radial-gradient(circle at 20% -10%, #26314f 0%, transparent 45%),
+      radial-gradient(circle at 100% 0%, #3a2450 0%, transparent 40%),
+      linear-gradient(180deg, #12141c 0%, #0f1117 100%);
+  }
+  #app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 66px; position: relative; }
 
   /* Top bar */
   #topbar {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 14px; background: #14171e; position: sticky; top: 0; z-index: 5;
-    border-bottom: 1px solid #2a2f3a;
+    padding: 12px 14px 10px; position: sticky; top: 0; z-index: 6;
+    background: rgba(18,20,28,.92); backdrop-filter: blur(6px);
+    border-bottom: 1px solid #262b38;
   }
-  #topbar .stat { text-align: center; font-size: 13px; color: #9aa4b2; }
-  #topbar .stat b { display: block; font-size: 16px; color: #fff; }
-  #buildingName { font-weight: 700; font-size: 15px; }
+  #buildingBtn { display: flex; align-items: center; gap: 8px; background: none; border: none; color: #fff; padding: 4px; border-radius: 10px; }
+  #buildingBtn:active { background: #ffffff14; transform: scale(0.97); }
+  #buildingIcon { font-size: 26px; }
+  #buildingName { font-weight: 700; font-size: 15px; text-align: left; }
+  #buildingName small { display: block; font-size: 10px; color: #7c8698; font-weight: 400; }
+  .stats { display: flex; gap: 12px; }
+  .stat { text-align: center; font-size: 12px; color: #9aa4b2; min-width: 46px; }
+  .stat b { display: block; font-size: 14px; color: #fff; }
+  .stat.money b { color: #f2c14e; }
+  .stat.rep b { color: #7ad0ff; }
+
+  #dayProgressWrap { height: 4px; background: #1a1d26; position: sticky; top: 58px; z-index: 6; }
+  #dayProgressFill { height: 100%; width: 0%; background: linear-gradient(90deg,#4c7cf2,#7ad0ff); transition: width .2s linear; }
+
+  /* Tabs */
+  #tabbar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+    display: flex; max-width: 480px; margin: 0 auto;
+    background: rgba(15,17,23,.97); border-top: 1px solid #262b38; backdrop-filter: blur(6px);
+  }
+  .tabbtn {
+    flex: 1; background: none; border: none; color: #7c8698; padding: 9px 0 8px;
+    font-size: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .tabbtn .ic { font-size: 19px; }
+  .tabbtn.active { color: #7ad0ff; }
+  .tabbtn .dot { position: absolute; margin-left: 14px; margin-top: -2px; width: 7px; height: 7px; border-radius: 50%; background: #ff5d73; }
+
+  .tabpane { display: none; flex: 1; flex-direction: column; }
+  .tabpane.active { display: flex; }
 
   /* Unit grid */
   #units {
     display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-    padding: 12px; flex: 1;
+    padding: 12px;
   }
   .unit {
-    background: #232833; border-radius: 12px; padding: 10px;
-    border: 1px solid #303645; position: relative; cursor: pointer;
-    transition: transform .1s;
+    background: linear-gradient(160deg,#232838,#1b1f2a); border-radius: 14px; padding: 10px;
+    border: 1px solid #2c3242; position: relative; cursor: pointer;
+    transition: transform .1s; box-shadow: 0 3px 8px rgba(0,0,0,.25);
   }
-  .unit:active { transform: scale(0.97); }
-  .unit.vacant { border-style: dashed; opacity: 0.85; }
+  .unit:active { transform: scale(0.96); }
+  .unit.vacant { border-style: dashed; opacity: 0.8; }
   .unit.issue { border-color: #d9534f; box-shadow: 0 0 0 1px #d9534f inset; }
-  .unit .no { font-size: 12px; color: #7c8698; }
-  .unit .tenant { font-weight: 600; font-size: 14px; margin: 2px 0; }
+  .unit .no { font-size: 11px; color: #7c8698; }
+  .unit .tenant { font-weight: 600; font-size: 13.5px; margin: 2px 0; }
   .unit .rent { font-size: 12px; color: #f2c14e; }
   .unit .bar { height: 5px; border-radius: 3px; background: #12151b; margin-top: 6px; overflow: hidden; }
-  .unit .bar > div { height: 100%; background: #4caf7d; }
-  .unit .badge {
-    position: absolute; top: 8px; right: 8px; font-size: 14px;
-  }
+  .unit .bar > div { height: 100%; background: #4caf7d; transition: width .3s; }
+  .unit .cond { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 14px 0 0 14px; }
+  .unit .badge { position: absolute; top: 8px; right: 8px; font-size: 14px; animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100%{ transform: scale(1);} 50%{ transform: scale(1.2);} }
 
-  /* Log feed */
-  #log {
-    padding: 8px 14px; font-size: 12px; color: #9aa4b2;
-    max-height: 90px; overflow-y: auto; background: #14171e;
-    border-top: 1px solid #2a2f3a;
-  }
+  #log { padding: 4px 14px 8px; font-size: 11.5px; color: #8b95a5; max-height: 110px; overflow-y: auto; }
   #log div { margin: 2px 0; }
 
-  /* End day button */
-  #endDayBar { padding: 10px 14px 16px; background: #14171e; }
-  #endDayBtn {
-    width: 100%; padding: 14px; font-size: 16px; font-weight: 700;
-    background: #4c7cf2; color: #fff; border: none; border-radius: 12px;
+  #actionBar { padding: 8px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .speedRow { display: flex; gap: 6px; }
+  .speedBtn {
+    flex: 1; padding: 8px 0; font-size: 12px; font-weight: 700; border-radius: 9px;
+    background: #1c2030; color: #8b95a5; border: 1px solid #2c3242;
   }
-  #endDayBtn:active { background: #3a63c9; }
+  .speedBtn.active { background: #4c7cf2; color: #fff; border-color: #4c7cf2; }
+  #expandBtn, #skipDayBtn {
+    width: 100%; padding: 13px; font-size: 14.5px; font-weight: 700;
+    border: none; border-radius: 12px; color: #fff;
+  }
+  #skipDayBtn { background: linear-gradient(90deg,#4c7cf2,#3a63c9); }
+  #expandBtn { background: #232838; border: 1px solid #343b4d; }
+  #expandBtn:disabled, #skipDayBtn:disabled { opacity: .4; }
+
+  /* Personel / Upgrade cards */
+  .listPane { padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+  .card {
+    background: linear-gradient(160deg,#232838,#1b1f2a); border: 1px solid #2c3242; border-radius: 14px; padding: 12px 14px;
+  }
+  .card .head { display: flex; align-items: center; gap: 10px; }
+  .card .head .ic { font-size: 24px; }
+  .card .head .info { flex: 1; }
+  .card .head .title { font-weight: 700; font-size: 14px; }
+  .card .head .desc { font-size: 11.5px; color: #8b95a5; margin-top: 1px; }
+  .card .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .card .level { font-size: 11px; color: #7ad0ff; }
+  .card button {
+    padding: 8px 14px; border: none; border-radius: 9px; font-weight: 700; font-size: 12.5px;
+    background: #4c7cf2; color: #fff;
+  }
+  .card button.owned { background: #2c3a2f; color: #6fcf97; }
+  .card button:disabled { opacity: .4; }
+  .card.locked { opacity: .55; }
+  .card.unlocked-ach { border-color: #f2c14e; }
+  .card.locked-ach { filter: grayscale(1); opacity: .5; }
 
   /* Modal */
   #overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,.55);
-    display: none; align-items: flex-end; justify-content: center; z-index: 20;
+    display: none; align-items: flex-end; justify-content: center; z-index: 30;
   }
   #overlay.show { display: flex; }
   #modal {
@@ -84,41 +142,79 @@
   #modal button:disabled { opacity: .4; }
   #modal .close { text-align: center; color: #7c8698; margin-top: 10px; font-size: 13px; }
 
-  #gameOver {
-    position: fixed; inset: 0; background: #0e1015; color: #eee;
+  #welcomeBack, #gameOver {
+    position: fixed; inset: 0; background: #0e1015ee;
     display: none; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center; padding: 24px; z-index: 30;
+    text-align: center; padding: 24px; z-index: 40;
   }
-  #gameOver.show { display: flex; }
-  #gameOver h1 { font-size: 28px; }
-  #gameOver button {
-    margin-top: 20px; padding: 14px 24px; font-size: 16px; font-weight: 700;
+  #welcomeBack.show, #gameOver.show { display: flex; }
+  #welcomeBack h1, #gameOver h1 { font-size: 26px; margin-bottom: 4px; }
+  #welcomeBack button, #gameOver button {
+    margin-top: 20px; padding: 14px 24px; font-size: 15px; font-weight: 700;
     background: #4c7cf2; color: #fff; border: none; border-radius: 12px;
   }
+  #welcomeBack .box { background: #1b2030; border: 1px solid #2c3242; border-radius: 14px; padding: 16px 20px; margin-top: 10px; min-width: 240px; }
+  #welcomeBack .box .row { display: flex; justify-content: space-between; font-size: 14px; margin: 5px 0; }
+
+  .floatText {
+    position: fixed; z-index: 50; font-weight: 800; font-size: 15px; pointer-events: none;
+    animation: floatUp 1.1s ease-out forwards; text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  }
+  @keyframes floatUp { from { opacity: 1; transform: translateY(0);} to { opacity: 0; transform: translateY(-46px);} }
 </style>
 </head>
 <body>
 <div id="app">
   <div id="topbar">
-    <div>
-      <div id="buildingName">🏢 Gökkuşağı Apt.</div>
-      <div style="font-size:11px;color:#7c8698;">Gün <span id="dayNo">1</span></div>
+    <button id="buildingBtn" onclick="tapBonus(event)">
+      <div id="buildingIcon">🏢</div>
+      <div id="buildingName">Gökkuşağı Apt.<small>Gün <span id="dayNo">1</span> · dokun: bonus</small></div>
+    </button>
+    <div class="stats">
+      <div class="stat money">💰<b id="moneyStat">0₺</b></div>
+      <div class="stat rep">⭐<b id="repStat">50</b></div>
     </div>
-    <div class="stat">💰<b id="moneyStat">0₺</b></div>
-    <div class="stat">⭐<b id="repStat">50</b></div>
+  </div>
+  <div id="dayProgressWrap"><div id="dayProgressFill"></div></div>
+
+  <div id="tab-bina" class="tabpane active">
+    <div id="units"></div>
+    <div id="log"></div>
+    <div id="actionBar">
+      <div class="speedRow" id="speedRow"></div>
+      <button id="expandBtn" onclick="expandBuilding()">Kat Ekle</button>
+      <button id="skipDayBtn" onclick="forceCompleteDay()">Günü Hızlandır ⏩</button>
+    </div>
   </div>
 
-  <div id="units"></div>
+  <div id="tab-personel" class="tabpane">
+    <div class="listPane" id="staffList"></div>
+  </div>
 
-  <div id="log"></div>
+  <div id="tab-yukseltme" class="tabpane">
+    <div class="listPane" id="upgradeList"></div>
+  </div>
 
-  <div id="endDayBar">
-    <button id="endDayBtn" onclick="endDay()">Günü Bitir ▶</button>
+  <div id="tab-basarim" class="tabpane">
+    <div class="listPane" id="achList"></div>
+  </div>
+
+  <div id="tabbar">
+    <button class="tabbtn active" data-tab="bina" onclick="switchTab('bina')"><span class="ic">🏢</span>Bina</button>
+    <button class="tabbtn" data-tab="personel" onclick="switchTab('personel')"><span class="ic">👷</span>Personel</button>
+    <button class="tabbtn" data-tab="yukseltme" onclick="switchTab('yukseltme')"><span class="ic">⬆️</span>Yükseltme</button>
+    <button class="tabbtn" data-tab="basarim" onclick="switchTab('basarim')"><span class="ic">🏆</span>Başarım</button>
   </div>
 </div>
 
 <div id="overlay" onclick="if(event.target===this) closeModal()">
   <div id="modal"></div>
+</div>
+
+<div id="welcomeBack">
+  <h1>👋 Tekrar Hoşgeldin!</h1>
+  <div class="box" id="welcomeBox"></div>
+  <button onclick="closeWelcome()">Devam Et</button>
 </div>
 
 <div id="gameOver">
@@ -128,10 +224,17 @@
 </div>
 
 <script>
-const UNIT_COUNT = 8;
+/* ---------- Constants ---------- */
+const SAVE_KEY = "apt_sim_save_v2";
+const DAY_DURATION_MS = 20000;      // real ms per in-game day at 1x speed
+const MAX_OFFLINE_MS = 8 * 60 * 60 * 1000; // cap offline progress at 8h
+const MAX_OFFLINE_DAYS = 200; // hard cap on simulated days regardless of elapsed time
+const MAX_UNITS = 20;
 const STARTING_MONEY = 6000;
 const BASE_RENT = 3200;
 const DAILY_EXPENSE_BASE = 250;
+const SPEEDS = [1, 2, 4];
+
 const TENANT_NAMES = ["Ahmet Yılmaz","Ayşe Kaya","Mehmet Demir","Fatma Şahin","Ali Çelik",
   "Zeynep Arslan","Mustafa Doğan","Emine Aydın","Hüseyin Öztürk","Hatice Yıldız",
   "İbrahim Kurt","Elif Aksoy","Ramazan Koç","Sultan Er","Osman Polat"];
@@ -143,15 +246,48 @@ const ISSUE_TYPES = [
   { key: "trash", label: "Çöp Birikmesi", icon: "🗑️", cost: 150 },
 ];
 
-let state = null;
+const STAFF_DEFS = {
+  kapici:     { label: "Kapıcı",      icon: "🧰", desc: "Daire arızalarını ücretsiz ve anında onarır.", hireCost: 3000, wage: 80 },
+  temizlikci: { label: "Temizlikçi",  icon: "🧹", desc: "Bina yıpranma hızını yarıya indirir.",         hireCost: 2000, wage: 60 },
+  guvenlik:   { label: "Güvenlik",    icon: "🛡️", desc: "Kötü olay ihtimalini ve tahliyeleri azaltır.",  hireCost: 2500, wage: 70 },
+};
 
+const UPGRADE_DEFS = {
+  rent:       { label: "Kira Danışmanlığı", icon: "💹", desc: "Toplanan kirayı %5 artırır (seviye başı).", baseCost: 1500, max: 10 },
+  applicant:  { label: "Pazarlama Kampanyası", icon: "📣", desc: "Yeni kiracı başvuru şansını artırır.", baseCost: 1200, max: 10 },
+  insulation: { label: "Yalıtım & Bakım", icon: "🧱", desc: "Bina yıpranmasını ve arıza şansını azaltır.", baseCost: 1000, max: 10 },
+  ad:         { label: "Halkla İlişkiler", icon: "📰", desc: "Kötü olayların etkisini azaltır, itibar kazancını artırır.", baseCost: 1300, max: 10 },
+};
+
+const ACHIEVEMENTS = [
+  { id: "first_tenant", label: "İlk Kiracı", icon: "🏠", desc: "İlk kiracını taşı.", check: s => s.units.some(u => u.tenant), reward: { money: 200 } },
+  { id: "day_10",  label: "10 Gün",  icon: "📅", desc: "10 gün boyunca binayı yönet.",  check: s => s.day >= 10,  reward: { money: 500 } },
+  { id: "day_50",  label: "50 Gün",  icon: "📆", desc: "50 gün boyunca binayı yönet.",  check: s => s.day >= 50,  reward: { money: 2000 } },
+  { id: "day_100", label: "100 Gün", icon: "🗓️", desc: "100 gün boyunca binayı yönet.", check: s => s.day >= 100, reward: { money: 5000 } },
+  { id: "money_10k",  label: "10.000₺ Kazanç",  icon: "💵", desc: "Toplamda 10.000₺ kazan.",  check: s => s.totalEarned >= 10000,  reward: { reputation: 5 } },
+  { id: "money_100k", label: "100.000₺ Kazanç", icon: "💰", desc: "Toplamda 100.000₺ kazan.", check: s => s.totalEarned >= 100000, reward: { reputation: 10 } },
+  { id: "full_house", label: "Tam Doluluk", icon: "🏘️", desc: "Tüm daireleri kirala.", check: s => s.units.length > 0 && s.units.every(u => u.tenant), reward: { money: 1000 } },
+  { id: "full_staff", label: "Kadro Tam", icon: "👷", desc: "Tüm personeli işe al.", check: s => s.staff.kapici && s.staff.temizlikci && s.staff.guvenlik, reward: { reputation: 10 } },
+  { id: "max_floors", label: "Maksimum Bina", icon: "🏗️", desc: `${MAX_UNITS} daireye ulaş.`, check: s => s.units.length >= MAX_UNITS, reward: { money: 5000 } },
+];
+
+let state = null;
+let activeTab = "bina";
+let tickHandle = null;
+let lastTapBonus = 0;
+
+/* ---------- State ---------- */
 function freshState() {
   return {
     day: 1,
     money: STARTING_MONEY,
     reputation: 50,
     badMoneyStreak: 0,
-    units: Array.from({ length: UNIT_COUNT }, (_, i) => ({
+    totalEarned: 0,
+    dayProgress: 0,
+    speed: 1,
+    lastActive: Date.now(),
+    units: Array.from({ length: 8 }, (_, i) => ({
       id: i + 1,
       rent: BASE_RENT,
       condition: 90 + Math.floor(Math.random() * 10),
@@ -159,14 +295,29 @@ function freshState() {
       tenant: null,
       applicant: null,
     })),
-    log: ["Binaya hoş geldin! Boş daireler için kiracı bul, kirayı zamanında topla."],
+    staff: { kapici: false, temizlikci: false, guvenlik: false },
+    upgrades: { rent: 0, applicant: 0, insulation: 0, ad: 0 },
+    achievements: {},
+    log: ["Binaya hoş geldin! Boş daireler için kiracı bul, personel ve yükseltmelerle işini otomatikleştir."],
   };
 }
 
-function save() { localStorage.setItem("apt_sim_save", JSON.stringify(state)); }
+function ensureShape(s) {
+  const fresh = freshState();
+  s.staff = Object.assign({}, fresh.staff, s.staff);
+  s.upgrades = Object.assign({}, fresh.upgrades, s.upgrades);
+  s.achievements = s.achievements || {};
+  if (typeof s.totalEarned !== "number") s.totalEarned = 0;
+  if (typeof s.dayProgress !== "number") s.dayProgress = 0;
+  if (typeof s.speed !== "number") s.speed = 1;
+  if (typeof s.lastActive !== "number") s.lastActive = Date.now();
+  return s;
+}
+
+function save() { state.lastActive = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
 function load() {
-  const raw = localStorage.getItem("apt_sim_save");
-  return raw ? JSON.parse(raw) : null;
+  const raw = localStorage.getItem(SAVE_KEY);
+  return raw ? ensureShape(JSON.parse(raw)) : null;
 }
 
 function pushLog(msg) {
@@ -176,11 +327,74 @@ function pushLog(msg) {
 
 function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function fmtMoney(n) {
+  const sign = n < 0 ? "-" : "";
+  n = Math.abs(Math.round(n));
+  if (n >= 1000000) return sign + (n / 1000000).toFixed(2).replace(".", ",") + "M₺";
+  return sign + n.toLocaleString("tr-TR") + "₺";
+}
 
+function rentMultiplier() { return 1 + 0.05 * state.upgrades.rent; }
+function applicantBonus() { return 0.08 * state.upgrades.applicant; }
+function decayMultiplier() {
+  let m = 1 - 0.07 * state.upgrades.insulation;
+  if (state.staff.temizlikci) m *= 0.5;
+  return Math.max(0.15, m);
+}
+function issueChanceMultiplier() { return Math.max(0.25, 1 - 0.06 * state.upgrades.insulation); }
+function badEventMultiplier() {
+  let m = 1 - 0.06 * state.upgrades.ad;
+  if (state.staff.guvenlik) m *= 0.55;
+  return Math.max(0.2, m);
+}
+function expandCost() {
+  return Math.round(2000 * Math.pow(state.units.length / 2, 1.6));
+}
+function upgradeCost(key) {
+  return Math.round(UPGRADE_DEFS[key].baseCost * Math.pow(1.6, state.upgrades[key]));
+}
+
+/* ---------- Floating text ---------- */
+function floatText(text, x, y, color) {
+  const el = document.createElement("div");
+  el.className = "floatText";
+  el.textContent = text;
+  el.style.left = x + "px";
+  el.style.top = y + "px";
+  el.style.color = color || "#4caf7d";
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1150);
+}
+
+function tapBonus(e) {
+  const now = Date.now();
+  if (now - lastTapBonus < 400) return;
+  lastTapBonus = now;
+  const amount = 15 + Math.floor(state.reputation / 4);
+  state.money += amount;
+  state.totalEarned += amount;
+  const rect = e.currentTarget.getBoundingClientRect();
+  floatText("+" + fmtMoney(amount), rect.left + rect.width / 2 - 10, rect.top, "#f2c14e");
+  render();
+}
+
+/* ---------- Tabs ---------- */
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll(".tabpane").forEach(p => p.classList.remove("active"));
+  document.getElementById("tab-" + tab).classList.add("active");
+  document.querySelectorAll(".tabbtn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  if (tab === "personel") renderStaff();
+  if (tab === "yukseltme") renderUpgrades();
+  if (tab === "basarim") renderAchievements();
+}
+
+/* ---------- Render: units ---------- */
 function render() {
   document.getElementById("dayNo").textContent = state.day;
-  document.getElementById("moneyStat").textContent = state.money.toLocaleString("tr-TR") + "₺";
-  document.getElementById("repStat").textContent = state.reputation;
+  document.getElementById("moneyStat").textContent = fmtMoney(state.money);
+  document.getElementById("repStat").textContent = Math.round(state.reputation);
+  document.getElementById("dayProgressFill").style.width = Math.min(100, state.dayProgress * 100) + "%";
 
   const unitsEl = document.getElementById("units");
   unitsEl.innerHTML = "";
@@ -189,7 +403,9 @@ function render() {
     div.className = "unit" + (!u.tenant ? " vacant" : "") + (u.issue ? " issue" : "");
     div.onclick = () => openUnit(u.id);
     const happinessPct = u.tenant ? Math.max(0, Math.min(100, u.tenant.happiness)) : 0;
+    const condColor = u.condition < 40 ? "#d9534f" : u.condition < 70 ? "#f0ad4e" : "#4caf7d";
     div.innerHTML = `
+      <div class="cond" style="background:${condColor}"></div>
       <div class="no">Daire ${u.id}</div>
       <div class="tenant">${u.tenant ? u.tenant.name : (u.applicant ? "🙋 Aday var" : "BOŞ")}</div>
       <div class="rent">${u.rent.toLocaleString("tr-TR")}₺/ay</div>
@@ -199,12 +415,132 @@ function render() {
     unitsEl.appendChild(div);
   });
 
-  const logEl = document.getElementById("log");
-  logEl.innerHTML = state.log.map(m => `<div>• ${m}</div>`).join("");
+  document.getElementById("log").innerHTML = state.log.map(m => `<div>• ${m}</div>`).join("");
+
+  const speedRow = document.getElementById("speedRow");
+  speedRow.innerHTML = SPEEDS.map(s => `<button class="speedBtn ${state.speed === s ? "active" : ""}" onclick="setSpeed(${s})">${s}x</button>`).join("");
+
+  const eCost = expandCost();
+  const expandBtn = document.getElementById("expandBtn");
+  if (state.units.length >= MAX_UNITS) {
+    expandBtn.textContent = "Maksimum kapasiteye ulaşıldı";
+    expandBtn.disabled = true;
+  } else {
+    expandBtn.textContent = `Kat Ekle (+2 Daire) — ${fmtMoney(eCost)}`;
+    expandBtn.disabled = state.money < eCost;
+  }
 
   save();
 }
 
+function setSpeed(s) { state.speed = s; render(); }
+
+/* ---------- Render: staff ---------- */
+function renderStaff() {
+  const el = document.getElementById("staffList");
+  el.innerHTML = Object.keys(STAFF_DEFS).map(key => {
+    const def = STAFF_DEFS[key];
+    const owned = state.staff[key];
+    return `
+      <div class="card">
+        <div class="head">
+          <div class="ic">${def.icon}</div>
+          <div class="info">
+            <div class="title">${def.label}</div>
+            <div class="desc">${def.desc}</div>
+          </div>
+        </div>
+        <div class="foot">
+          <span class="level">${owned ? `Günlük ücret: ${def.wage}₺` : `İşe alım: ${fmtMoney(def.hireCost)} + ${def.wage}₺/gün`}</span>
+          <button class="${owned ? "owned" : ""}" ${owned || state.money < def.hireCost ? "disabled" : ""} onclick="hireStaff('${key}')">${owned ? "✅ Çalışıyor" : "İşe Al"}</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function hireStaff(key) {
+  const def = STAFF_DEFS[key];
+  if (state.staff[key] || state.money < def.hireCost) return;
+  state.money -= def.hireCost;
+  state.staff[key] = true;
+  pushLog(`${def.label} işe alındı.`);
+  checkAchievements();
+  renderStaff();
+  render();
+}
+
+/* ---------- Render: upgrades ---------- */
+function renderUpgrades() {
+  const el = document.getElementById("upgradeList");
+  el.innerHTML = Object.keys(UPGRADE_DEFS).map(key => {
+    const def = UPGRADE_DEFS[key];
+    const level = state.upgrades[key];
+    const maxed = level >= def.max;
+    const cost = upgradeCost(key);
+    return `
+      <div class="card">
+        <div class="head">
+          <div class="ic">${def.icon}</div>
+          <div class="info">
+            <div class="title">${def.label}</div>
+            <div class="desc">${def.desc}</div>
+          </div>
+        </div>
+        <div class="foot">
+          <span class="level">Seviye ${level}/${def.max}</span>
+          <button ${maxed || state.money < cost ? "disabled" : ""} onclick="buyUpgrade('${key}')">${maxed ? "MAX" : fmtMoney(cost)}</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function buyUpgrade(key) {
+  const def = UPGRADE_DEFS[key];
+  if (state.upgrades[key] >= def.max) return;
+  const cost = upgradeCost(key);
+  if (state.money < cost) return;
+  state.money -= cost;
+  state.upgrades[key]++;
+  pushLog(`${def.label} seviye ${state.upgrades[key]} oldu.`);
+  renderUpgrades();
+  render();
+}
+
+/* ---------- Render: achievements ---------- */
+function renderAchievements() {
+  const el = document.getElementById("achList");
+  el.innerHTML = ACHIEVEMENTS.map(a => {
+    const unlocked = !!state.achievements[a.id];
+    return `
+      <div class="card ${unlocked ? "unlocked-ach" : "locked-ach"}">
+        <div class="head">
+          <div class="ic">${a.icon}</div>
+          <div class="info">
+            <div class="title">${a.label}</div>
+            <div class="desc">${a.desc}</div>
+          </div>
+          <div style="font-size:20px;">${unlocked ? "✅" : "🔒"}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function checkAchievements() {
+  ACHIEVEMENTS.forEach(a => {
+    if (state.achievements[a.id]) return;
+    if (a.check(state)) {
+      state.achievements[a.id] = true;
+      if (a.reward.money) { state.money += a.reward.money; state.totalEarned += a.reward.money; }
+      if (a.reward.reputation) state.reputation = Math.min(100, state.reputation + a.reward.reputation);
+      pushLog(`🏆 Başarım kazanıldı: ${a.label}!`);
+    }
+  });
+}
+
+/* ---------- Unit modal ---------- */
 function openUnit(id) {
   const u = state.units.find(x => x.id === id);
   const modal = document.getElementById("modal");
@@ -268,9 +604,7 @@ function repairUnit(id) {
 function adjustRent(id, delta) {
   const u = state.units.find(x => x.id === id);
   u.rent = Math.max(500, u.rent + delta);
-  if (u.tenant) {
-    u.tenant.happiness += delta > 0 ? -8 : 4;
-  }
+  if (u.tenant) u.tenant.happiness += delta > 0 ? -8 : 4;
   openUnit(id);
 }
 
@@ -288,6 +622,7 @@ function acceptApplicant(id) {
   u.tenant = { name: u.applicant.name, happiness: 70, unpaidStreak: 0 };
   pushLog(`Daire ${id}: ${u.applicant.name} taşındı.`);
   u.applicant = null;
+  checkAchievements();
   closeModal();
 }
 
@@ -298,127 +633,256 @@ function rejectApplicant(id) {
   closeModal();
 }
 
-function endDay() {
+function expandBuilding() {
+  const cost = expandCost();
+  if (state.units.length >= MAX_UNITS || state.money < cost) return;
+  state.money -= cost;
+  const startId = state.units.length + 1;
+  for (let i = 0; i < 2 && state.units.length < MAX_UNITS; i++) {
+    state.units.push({
+      id: startId + i,
+      rent: BASE_RENT,
+      condition: 100,
+      issue: null,
+      tenant: null,
+      applicant: null,
+    });
+  }
+  pushLog(`Yeni kat eklendi: Daire ${startId}-${startId + 1} inşa edildi.`);
+  checkAchievements();
+  render();
+}
+
+/* ---------- Day processing (idle core) ---------- */
+function processDay(silent) {
   let income = 0, expenses = DAILY_EXPENSE_BASE;
-  const occupied = state.units.filter(u => u.tenant).length;
-  expenses += occupied * 40;
+  Object.keys(state.staff).forEach(k => { if (state.staff[k]) expenses += STAFF_DEFS[k].wage; });
+
+  const dMul = decayMultiplier();
+  const iMul = issueChanceMultiplier();
+  const rMul = rentMultiplier();
 
   state.units.forEach(u => {
-    // Condition decay
-    u.condition = Math.max(0, u.condition - rand(1, 3));
+    u.condition = Math.max(0, u.condition - rand(1, 3) * dMul);
 
-    // New issue chance
     if (!u.issue) {
-      const chance = u.condition < 40 ? 0.22 : u.condition < 70 ? 0.10 : 0.04;
-      if (Math.random() < chance) {
+      const baseChance = u.condition < 40 ? 0.22 : u.condition < 70 ? 0.10 : 0.04;
+      if (Math.random() < baseChance * iMul) {
         u.issue = pick(ISSUE_TYPES);
-        pushLog(`Daire ${u.id}: ${u.issue.icon} ${u.issue.label} oluştu!`);
-        if (u.tenant) u.tenant.happiness -= 10;
+        if (state.staff.kapici) {
+          u.condition = Math.min(100, u.condition + 15);
+          if (!silent) pushLog(`Daire ${u.id}: ${u.issue.icon} ${u.issue.label} oluştu, kapıcı hemen onardı.`);
+          u.issue = null;
+        } else {
+          if (!silent) pushLog(`Daire ${u.id}: ${u.issue.icon} ${u.issue.label} oluştu!`);
+          if (u.tenant) u.tenant.happiness -= 10;
+        }
       }
     }
 
     if (u.tenant) {
-      // Rent vs market pressure
       if (u.rent > BASE_RENT * 1.15) u.tenant.happiness -= 3;
       else if (u.rent < BASE_RENT * 0.9) u.tenant.happiness += 2;
       if (u.issue) u.tenant.happiness -= 5;
       u.tenant.happiness = Math.max(0, Math.min(100, u.tenant.happiness));
 
-      // Rent payment
       if (u.tenant.happiness > 15 || Math.random() > 0.3) {
-        income += u.rent;
+        const rentPaid = Math.round(u.rent * rMul);
+        income += rentPaid;
         u.tenant.unpaidStreak = 0;
       } else {
         u.tenant.unpaidStreak = (u.tenant.unpaidStreak || 0) + 1;
-        pushLog(`Daire ${u.id}: ${u.tenant.name} kirayı ödemedi.`);
+        if (!silent) pushLog(`Daire ${u.id}: ${u.tenant.name} kirayı ödemedi.`);
       }
 
-      // Move out check
-      if (u.tenant.happiness <= 0) {
-        pushLog(`Daire ${u.id}: ${u.tenant.name} memnuniyetsizlikten taşındı.`);
+      const moveOutChance = state.staff.guvenlik ? 0.5 : 1;
+      if (u.tenant.happiness <= 0 && Math.random() < moveOutChance) {
+        if (!silent) pushLog(`Daire ${u.id}: ${u.tenant.name} memnuniyetsizlikten taşındı.`);
         state.reputation = Math.max(0, state.reputation - 2);
         u.tenant = null;
       }
-    } else if (!u.applicant && Math.random() < 0.15 + state.reputation / 400) {
+    } else if (!u.applicant && Math.random() < 0.15 + state.reputation / 400 + applicantBonus()) {
       const name = pick(TENANT_NAMES);
       u.applicant = { name, maxRent: u.rent + rand(-300, 600) };
-      pushLog(`Daire ${u.id}: ${name} başvurdu.`);
+      if (!silent) pushLog(`Daire ${u.id}: ${name} başvurdu.`);
     }
   });
 
   state.money += income - expenses;
-  pushLog(`Gün ${state.day} kapandı: +${income.toLocaleString("tr-TR")}₺ gelir, -${expenses.toLocaleString("tr-TR")}₺ gider.`);
+  state.totalEarned += income;
+  if (!silent) pushLog(`Gün ${state.day} kapandı: +${income.toLocaleString("tr-TR")}₺ gelir, -${expenses.toLocaleString("tr-TR")}₺ gider.`);
 
-  // Random building-wide event
-  if (Math.random() < 0.15) triggerRandomEvent();
+  if (Math.random() < 0.15) triggerRandomEvent(silent);
 
-  // Money streak / game over check
-  if (state.money < 0) {
-    state.badMoneyStreak++;
-  } else {
-    state.badMoneyStreak = 0;
-  }
-
+  state.badMoneyStreak = state.money < 0 ? state.badMoneyStreak + 1 : 0;
   state.day++;
+  checkAchievements();
 
-  if (state.badMoneyStreak >= 3) {
-    render();
-    document.getElementById("gameOverText").textContent =
-      `${state.day} gün yönettin. Bina iflas etti ve devretmek zorunda kaldın.`;
-    document.getElementById("gameOver").classList.add("show");
-    localStorage.removeItem("apt_sim_save");
-    return;
-  }
-
-  render();
+  return { income, expenses };
 }
 
-function triggerRandomEvent() {
+function triggerRandomEvent(silent) {
   const avgCondition = state.units.reduce((s, u) => s + u.condition, 0) / state.units.length;
+  const bMul = badEventMultiplier();
   const events = [
     () => {
       if (avgCondition < 55) {
-        const fine = rand(500, 1500);
+        const fine = Math.round(rand(500, 1500) * bMul);
         state.money -= fine;
-        pushLog(`🏛️ Belediye denetimi: bina bakımsız bulundu, ${fine.toLocaleString("tr-TR")}₺ ceza kesildi.`);
+        if (!silent) pushLog(`🏛️ Belediye denetimi: bina bakımsız bulundu, ${fine.toLocaleString("tr-TR")}₺ ceza kesildi.`);
       } else {
         state.reputation = Math.min(100, state.reputation + 3);
-        pushLog("🏛️ Belediye denetimi başarıyla geçildi, itibarın arttı.");
+        if (!silent) pushLog("🏛️ Belediye denetimi başarıyla geçildi, itibarın arttı.");
       }
     },
     () => {
       const u = pick(state.units);
-      u.condition = Math.max(0, u.condition - 25);
-      if (!u.issue) u.issue = ISSUE_TYPES[rand(0, ISSUE_TYPES.length - 1)];
-      pushLog(`⛈️ Fırtına Daire ${u.id}'de hasara yol açtı.`);
+      u.condition = Math.max(0, u.condition - 25 * bMul);
+      if (!u.issue && !state.staff.kapici) u.issue = ISSUE_TYPES[rand(0, ISSUE_TYPES.length - 1)];
+      if (!silent) pushLog(`⛈️ Fırtına Daire ${u.id}'de hasara yol açtı.`);
     },
     () => {
       state.reputation = Math.min(100, state.reputation + 5);
-      pushLog("📱 Sosyal medyada bina övgüyle anıldı! İtibar arttı.");
+      if (!silent) pushLog("📱 Sosyal medyada bina övgüyle anıldı! İtibar arttı.");
     },
     () => {
       const bonus = rand(500, 1200);
       state.money += bonus;
-      pushLog(`🎁 Beklenmedik gelir: ${bonus.toLocaleString("tr-TR")}₺ kazandın.`);
+      state.totalEarned += bonus;
+      if (!silent) pushLog(`🎁 Beklenmedik gelir: ${bonus.toLocaleString("tr-TR")}₺ kazandın.`);
     },
     () => {
-      state.reputation = Math.max(0, state.reputation - 4);
-      pushLog("📝 Kiracılardan toplu şikayet dilekçesi geldi. İtibar düştü.");
+      state.reputation = Math.max(0, state.reputation - 4 * bMul);
+      if (!silent) pushLog("📝 Kiracılardan toplu şikayet dilekçesi geldi. İtibar düştü.");
     },
   ];
   pick(events)();
 }
 
+function checkGameOver() {
+  if (state.badMoneyStreak >= 3) {
+    render();
+    document.getElementById("gameOverText").textContent =
+      `${state.day} gün yönettin. Bina iflas etti ve devretmek zorunda kaldın.`;
+    document.getElementById("gameOver").classList.add("show");
+    localStorage.removeItem(SAVE_KEY);
+    clearInterval(tickHandle);
+    return true;
+  }
+  return false;
+}
+
+function forceCompleteDay() {
+  state.dayProgress = 1;
+  runTick(0);
+}
+
+/* ---------- Idle tick loop ---------- */
+function runTick(deltaMs) {
+  const dayMs = DAY_DURATION_MS / state.speed;
+  state.dayProgress += deltaMs / dayMs;
+  while (state.dayProgress >= 1) {
+    state.dayProgress -= 1;
+    const before = state.money;
+    processDay(false);
+    const delta = state.money - before;
+    const rect = document.getElementById("moneyStat").getBoundingClientRect();
+    floatText((delta >= 0 ? "+" : "") + fmtMoney(delta), rect.left, rect.bottom, delta >= 0 ? "#4caf7d" : "#ff5d73");
+    if (checkGameOver()) return;
+  }
+  render();
+  if (activeTab === "personel") renderStaff();
+  if (activeTab === "yukseltme") renderUpgrades();
+  if (activeTab === "basarim") renderAchievements();
+}
+
+function startTickLoop() {
+  if (tickHandle) clearInterval(tickHandle);
+  tickHandle = setInterval(() => runTick(1000), 1000);
+}
+
+/* ---------- Offline progress ---------- */
+function applyOfflineProgress() {
+  const now = Date.now();
+  const elapsed = Math.min(now - state.lastActive, MAX_OFFLINE_MS);
+  if (elapsed < 5000) return null;
+
+  const dayMs = DAY_DURATION_MS / state.speed;
+  const totalProgress = state.dayProgress + elapsed / dayMs;
+  const daysToSim = Math.min(Math.floor(totalProgress), MAX_OFFLINE_DAYS);
+  state.dayProgress = totalProgress - Math.floor(totalProgress);
+
+  if (daysToSim <= 0) return null;
+
+  const moneyBefore = state.money;
+  let issuesOccurred = 0;
+  let actualDays = 0;
+  for (let i = 0; i < daysToSim; i++) {
+    const before = state.units.map(u => !!u.issue);
+    processDay(true);
+    actualDays++;
+    state.units.forEach((u, idx) => { if (u.issue && !before[idx]) issuesOccurred++; });
+    if (state.badMoneyStreak >= 3) break;
+  }
+
+  return {
+    days: actualDays,
+    earned: state.money - moneyBefore,
+    issuesOccurred,
+    bankrupt: state.badMoneyStreak >= 3,
+  };
+}
+
+function showWelcomeBack(summary) {
+  const box = document.getElementById("welcomeBox");
+  box.innerHTML = `
+    <div class="row"><span>Geçen süre</span><span>${summary.days} gün</span></div>
+    <div class="row"><span>Kazanç/Kayıp</span><span style="color:${summary.earned >= 0 ? '#4caf7d' : '#ff5d73'}">${summary.earned >= 0 ? "+" : ""}${fmtMoney(summary.earned)}</span></div>
+    <div class="row"><span>Yeni arızalar</span><span>${summary.issuesOccurred}</span></div>
+  `;
+  document.getElementById("welcomeBack").classList.add("show");
+}
+
+function closeWelcome() {
+  document.getElementById("welcomeBack").classList.remove("show");
+  if (checkGameOver()) return;
+  render();
+}
+
+/* ---------- Lifecycle ---------- */
 function restart() {
   state = freshState();
   document.getElementById("gameOver").classList.remove("show");
+  switchTab("bina");
   render();
+  startTickLoop();
 }
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { save(); }
+  else {
+    const summary = applyOfflineProgress();
+    if (summary && summary.days > 0) {
+      if (summary.bankrupt) { checkGameOver(); return; }
+      showWelcomeBack(summary);
+    }
+    render();
+  }
+});
 
 (function init() {
   const loaded = load();
   state = loaded || freshState();
+  const summary = state.lastActive ? applyOfflineProgress() : null;
+
   render();
+  switchTab("bina");
+  startTickLoop();
+
+  if (summary && summary.days > 0) {
+    if (summary.bankrupt) { checkGameOver(); }
+    else showWelcomeBack(summary);
+  }
 })();
 </script>
 </body>

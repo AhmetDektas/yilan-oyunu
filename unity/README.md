@@ -1,15 +1,17 @@
-# Orman Otel — Unity Portu (başlangıç kiti)
+# Orman Otel — Unity Projesi
 
-`apartman-yoneticisi.html`'in güncel "Orman Otel" sürümünün (misafir/oda
-yönetimi, personel, olanaklar, başarımlar, gerçek zamanlı odun kesme/
-avlanma haritası, **ve** Papers-Please tarzı kimlik kontrolü) C#'a
-taşınmış hali. Unity Editor'ü bu ortamda çalıştıramadığım için sahne/
-prefab/Canvas nesnelerini elle kuramadım — bu script'ler mantık +
-davranış katmanı, sahneyi aşağıdaki adımlarla sen kuracaksın.
+"Orman Otel": misafir/oda yönetimi, personel, olanaklar, başarımlar,
+gerçek zamanlı odun kesme/avlanma haritası, Papers-Please tarzı kimlik
+kontrolü, ve duvar/okçu kulesi savunması olan bir otel işletme +
+hayatta kalma oyunu. Bu repo artık sadece bu Unity projesine ayrılmış
+durumda (eski web prototipi kaldırıldı). Unity Editor'ü bu ortamda
+çalıştıramadığım için sahne/prefab/Canvas nesnelerini elle kuramadım —
+script'ler mantık + davranış katmanı, sahneyi aşağıdaki adımlarla sen
+kuracaksın.
 
 **Referans:** Karakter hareketi, github.com/KaganAyten/Click-MoveSource
 reposundaki yaklaşımdan uyarlandı (raycast → `NavMeshAgent.SetDestination`
-→ animator senkronu) — bu yüzden script'ler artık gerçek 3D/`NavMeshAgent`
+→ animator senkronu) — bu yüzden script'ler gerçek 3D/`NavMeshAgent`
 tabanlı: karakter ve hayvanlar ağaçların/binanın içinden geçmiyor, gerçek
 yol buluyor.
 
@@ -19,7 +21,9 @@ Unity Hub → New Project → **3D (URP)** template.
 
 ## 2) Script'leri içeri al
 
-Bu klasördeki tüm `.cs` dosyalarını `Assets/Scripts/` altına kopyala.
+Bu repodaki `unity/Assets/Scripts/` klasörünün tamamını, kendi Unity
+projenin `Assets/Scripts/` klasörüne kopyala (klasör yapısı zaten
+birebir eşleşiyor, olduğu gibi sürükleyip bırakabilirsin).
 
 **Mantık katmanı** (UnityEngine'e bağımlı değil, saf C#):
 `GameState.cs`, `RoomUnit.cs`, `GuestTypes.cs`, `StaffSystem.cs`,
@@ -186,8 +190,8 @@ ise `GameManager.troubleStrikeChancePerDay`'den ayarlayabilirsin.
 ## Notlar
 
 - Sayılar/denge (kira, maliyetler, seviye eğrileri, avcı verimi, yemekhane
-  fiyatı) web sürümüyle birebir aynı — `apartman-yoneticisi.html`'de
-  60 günlük otomatik oynatmayla test edip dengelemiştim.
+  fiyatı) geliştirme sırasında bir web prototipinde 60 günlük otomatik
+  oynatmayla test edilip dengelenmiş değerler.
 - Taşınan (carry) odun/et `PlayerController` üzerinde tutulur, kalıcı
   kayda dahil değil — sahne yeniden yüklenince sıfırlanır (kasıtlı,
   basitlik için). `GameState.wood`/`meat` (depolanmış stok) ise kalıcı
@@ -199,8 +203,8 @@ ise `GameManager.troubleStrikeChancePerDay`'den ayarlayabilirsin.
   arka plana atıldığında (`OnApplicationPause`) ve kapanırken
   (`OnApplicationQuit`). `GameManager.Awake()` başlarken önce kayıtlı
   oyunu yükler, yoksa sıfırdan başlar. `Restart()` ve iflas anı kaydı
-  siler (web sürümüyle aynı davranış). Herhangi bir sahne/Canvas kurulumu
-  gerektirmiyor, otomatik çalışıyor.
+  siler. Herhangi bir sahne/Canvas kurulumu gerektirmiyor, otomatik
+  çalışıyor.
 - İncelediğim diğer KaganAyten repoları (`RestaurantGame3DUnity`'nin
   malzeme taşıma/teslim deseni, `Vibe-Survivors`'ın dolaşan düşman
   yapay zekası) zaten kavramsal olarak `PlayerController`/`DropZone`/

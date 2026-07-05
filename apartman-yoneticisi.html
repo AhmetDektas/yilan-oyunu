@@ -59,6 +59,63 @@
   .tabpane { display: none; flex: 1; flex-direction: column; }
   .tabpane.active { display: flex; }
 
+  /* Building visual scene */
+  #buildingScene {
+    position: relative; height: 230px; margin: 10px 12px 4px; border-radius: 16px; overflow: hidden;
+    border: 1px solid #2c3242; box-shadow: 0 6px 16px rgba(0,0,0,.35);
+  }
+  #sceneSky {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, #2a4d7a 0%, #4c7cb0 55%, #7ab3c9 100%);
+    transition: background 1.2s ease;
+  }
+  #sceneSky.evening {
+    background: linear-gradient(180deg, #2a1f45 0%, #5c3560 55%, #a85a4f 100%);
+  }
+  #sceneSkyline {
+    position: absolute; left: 0; right: 0; bottom: 46px; height: 60px;
+    background:
+      linear-gradient(#00000000, #00000000) ,
+      repeating-linear-gradient(90deg, #ffffff14 0 18px, transparent 18px 34px);
+    opacity: .5;
+  }
+  #sceneFacade {
+    position: absolute; left: 50%; transform: translateX(-50%); bottom: 46px;
+    display: flex; flex-direction: column-reverse; gap: 3px;
+    padding: 6px 8px; background: linear-gradient(180deg,#4a4033,#39312a);
+    border-radius: 6px 6px 0 0; box-shadow: 0 -2px 10px rgba(0,0,0,.3);
+  }
+  .facadeFloor { display: flex; gap: 4px; }
+  .facadeWindow {
+    width: 26px; height: 20px; border-radius: 2px; background: #1b1f2a;
+    border: 1px solid #00000055; transition: background .4s;
+  }
+  .facadeWindow.occupied { background: #f2c14e; box-shadow: 0 0 6px #f2c14e99; }
+  .facadeWindow.vacant { background: #2c3242; }
+  .facadeWindow.issue { background: #d9534f; animation: pulse 1s infinite; }
+  #sceneGround {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 46px;
+    background: linear-gradient(180deg, #3a3f4a, #262b33);
+    border-top: 2px solid #4c525f;
+  }
+  #kapiciChar {
+    position: absolute; bottom: 6px; left: 20px; font-size: 26px;
+    transition: left 1s ease-in-out;
+    animation: charBob .6s ease-in-out infinite alternate;
+    filter: drop-shadow(0 3px 2px rgba(0,0,0,.4));
+  }
+  @keyframes charBob { from { transform: translateY(0);} to { transform: translateY(-4px);} }
+  .charBubble {
+    position: absolute; bottom: 34px; font-size: 18px; pointer-events: none;
+    animation: bubblePop 1.4s ease-out forwards;
+  }
+  @keyframes bubblePop {
+    0% { opacity: 0; transform: translateY(4px) scale(.6); }
+    20% { opacity: 1; transform: translateY(0) scale(1); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-10px) scale(1); }
+  }
+
   /* Unit grid */
   #units {
     display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
@@ -178,6 +235,14 @@
   <div id="dayProgressWrap"><div id="dayProgressFill"></div></div>
 
   <div id="tab-bina" class="tabpane active">
+    <div id="buildingScene">
+      <div id="sceneSky"></div>
+      <div id="sceneSkyline"></div>
+      <div id="sceneFacade"></div>
+      <div id="sceneGround">
+        <div id="kapiciChar">🧑‍🔧</div>
+      </div>
+    </div>
     <div id="units"></div>
     <div id="log"></div>
     <div id="actionBar">
@@ -260,10 +325,15 @@ const ISSUE_TYPES = [
 ];
 
 const STAFF_DEFS = {
-  kapici:     { label: "Kapıcı",      icon: "🧰", desc: "Daire arızalarını ücretsiz ve anında onarır.", hireCost: 3000, wage: 80 },
-  temizlikci: { label: "Temizlikçi",  icon: "🧹", desc: "Bina yıpranma hızını yarıya indirir.",         hireCost: 2000, wage: 60 },
-  guvenlik:   { label: "Güvenlik",    icon: "🛡️", desc: "Kötü olay ihtimalini ve tahliyeleri azaltır.",  hireCost: 2500, wage: 70 },
+  kapici:     { label: "Kapıcı",      icon: "🧰", sprite: "🧑‍🔧", desc: "Daire arızalarını ücretsiz onarır. Seviye arttıkça onarımda daha çok durum yeniler.", hireCost: 3000, wage: 80 },
+  temizlikci: { label: "Temizlikçi",  icon: "🧹", sprite: "🧑‍🦰", desc: "Bina yıpranma hızını azaltır. Seviye arttıkça etkisi güçlenir.",         hireCost: 2000, wage: 60 },
+  guvenlik:   { label: "Güvenlik",    icon: "🛡️", sprite: "💂", desc: "Kötü olay ve tahliye ihtimalini azaltır. Seviye arttıkça etkisi güçlenir.",  hireCost: 2500, wage: 70 },
 };
+const STAFF_MAX_LEVEL = 15;
+function staffXpToNext(level) { return Math.round(60 * Math.pow(1.22, level - 1)); }
+function kapiciRestore(level) { return 15 + level * 3; }
+function temizlikciFactor(level) { return Math.max(0.15, 0.5 - 0.02 * level); }
+function guvenlikFactor(level) { return Math.max(0.15, 0.5 - 0.02 * level); }
 
 const UPGRADE_COST_RATIO = 1.75;
 const UPGRADE_DEFS = {
@@ -281,7 +351,7 @@ const ACHIEVEMENTS = [
   { id: "money_10k",  label: "10.000₺ Kazanç",  icon: "💵", desc: "Toplamda 10.000₺ kazan.",  check: s => s.totalEarned >= 10000,  reward: { reputation: 5 } },
   { id: "money_100k", label: "100.000₺ Kazanç", icon: "💰", desc: "Toplamda 100.000₺ kazan.", check: s => s.totalEarned >= 100000, reward: { reputation: 10 } },
   { id: "full_house", label: "Tam Doluluk", icon: "🏘️", desc: "Tüm daireleri kirala.", check: s => s.units.length > 0 && s.units.every(u => u.tenant), reward: { money: 1000 } },
-  { id: "full_staff", label: "Kadro Tam", icon: "👷", desc: "Tüm personeli işe al.", check: s => s.staff.kapici && s.staff.temizlikci && s.staff.guvenlik, reward: { reputation: 10 } },
+  { id: "full_staff", label: "Kadro Tam", icon: "👷", desc: "Tüm personeli işe al.", check: s => s.staff.kapici.hired && s.staff.temizlikci.hired && s.staff.guvenlik.hired, reward: { reputation: 10 } },
   { id: "max_floors", label: "Maksimum Bina", icon: "🏗️", desc: `${MAX_UNITS} daireye ulaş.`, check: s => s.units.length >= MAX_UNITS, reward: { money: 5000 } },
   { id: "mixed_tenants", label: "Karma Bina", icon: "🌈", desc: "Aynı anda üç farklı kiracı tipini bina bulundur.", check: s => new Set(s.units.filter(u => u.tenant).map(u => u.tenant.type)).size >= 3, reward: { reputation: 8 } },
 ];
@@ -310,7 +380,11 @@ function freshState() {
       tenant: null,
       applicant: null,
     })),
-    staff: { kapici: false, temizlikci: false, guvenlik: false },
+    staff: {
+      kapici: { hired: false, level: 1, xp: 0 },
+      temizlikci: { hired: false, level: 1, xp: 0 },
+      guvenlik: { hired: false, level: 1, xp: 0 },
+    },
     upgrades: { rent: 0, applicant: 0, insulation: 0, ad: 0 },
     achievements: {},
     log: ["Binaya hoş geldin! Boş daireler için kiracı bul, personel ve yükseltmelerle işini otomatikleştir."],
@@ -319,7 +393,14 @@ function freshState() {
 
 function ensureShape(s) {
   const fresh = freshState();
-  s.staff = Object.assign({}, fresh.staff, s.staff);
+  const mergedStaff = Object.assign({}, fresh.staff, s.staff);
+  Object.keys(fresh.staff).forEach(k => {
+    const v = mergedStaff[k];
+    mergedStaff[k] = typeof v === "boolean"
+      ? { hired: v, level: 1, xp: 0 }
+      : Object.assign({}, fresh.staff[k], v);
+  });
+  s.staff = mergedStaff;
   s.upgrades = Object.assign({}, fresh.upgrades, s.upgrades);
   s.achievements = s.achievements || {};
   if (typeof s.totalEarned !== "number") s.totalEarned = 0;
@@ -357,14 +438,26 @@ function rentMultiplier() { return 1 + 0.05 * state.upgrades.rent; }
 function applicantBonus() { return 0.03 * state.upgrades.applicant; }
 function decayMultiplier() {
   let m = 1 - 0.07 * state.upgrades.insulation;
-  if (state.staff.temizlikci) m *= 0.5;
+  if (state.staff.temizlikci.hired) m *= temizlikciFactor(state.staff.temizlikci.level);
   return Math.max(0.15, m);
 }
 function issueChanceMultiplier() { return Math.max(0.25, 1 - 0.06 * state.upgrades.insulation); }
 function badEventMultiplier() {
   let m = 1 - 0.06 * state.upgrades.ad;
-  if (state.staff.guvenlik) m *= 0.55;
+  if (state.staff.guvenlik.hired) m *= guvenlikFactor(state.staff.guvenlik.level);
   return Math.max(0.2, m);
+}
+
+/* ---------- Staff XP / leveling ---------- */
+function gainStaffXp(key, amount, silent) {
+  const s = state.staff[key];
+  if (!s.hired || s.level >= STAFF_MAX_LEVEL) return;
+  s.xp += amount;
+  while (s.level < STAFF_MAX_LEVEL && s.xp >= staffXpToNext(s.level)) {
+    s.xp -= staffXpToNext(s.level);
+    s.level++;
+    if (!silent) pushLog(`${STAFF_DEFS[key].icon} ${STAFF_DEFS[key].label} seviye ${s.level} oldu!`);
+  }
 }
 function expandCost() {
   return Math.round(2000 * Math.pow(state.units.length / 2, 1.6));
@@ -415,6 +508,8 @@ function render() {
   document.getElementById("repStat").textContent = Math.round(state.reputation);
   document.getElementById("dayProgressFill").style.width = Math.min(100, state.dayProgress * 100) + "%";
 
+  renderScene();
+
   const unitsEl = document.getElementById("units");
   unitsEl.innerHTML = "";
   state.units.forEach(u => {
@@ -454,24 +549,90 @@ function render() {
 
 function setSpeed(s) { state.speed = s; render(); }
 
+/* ---------- Render: visual building scene ---------- */
+function renderScene() {
+  document.getElementById("sceneSky").classList.toggle("evening", state.dayProgress > 0.6);
+
+  const facade = document.getElementById("sceneFacade");
+  const floors = [];
+  for (let i = 0; i < state.units.length; i += 2) floors.push(state.units.slice(i, i + 2));
+
+  facade.innerHTML = floors.map(floor => `
+    <div class="facadeFloor">
+      ${floor.map(u => {
+        const cls = u.issue ? "issue" : u.tenant ? "occupied" : "vacant";
+        return `<div class="facadeWindow ${cls}" data-unit="${u.id}"></div>`;
+      }).join("")}
+    </div>
+  `).join("");
+}
+
+function walkCharacterTo(unitId, emoji) {
+  const win = document.querySelector(`.facadeWindow[data-unit="${unitId}"]`);
+  const ground = document.getElementById("sceneGround");
+  const charEl = document.getElementById("kapiciChar");
+  if (!win || !ground || !charEl) return;
+
+  const groundRect = ground.getBoundingClientRect();
+  const winRect = win.getBoundingClientRect();
+  const targetLeft = Math.max(6, Math.min(groundRect.width - 30, winRect.left - groundRect.left));
+
+  charEl.style.left = targetLeft + "px";
+
+  const bubble = document.createElement("div");
+  bubble.className = "charBubble";
+  bubble.textContent = emoji;
+  bubble.style.left = targetLeft + "px";
+  ground.appendChild(bubble);
+  setTimeout(() => bubble.remove(), 1400);
+}
+
 /* ---------- Render: staff ---------- */
+function staffEffectDesc(key, level) {
+  if (key === "kapici") return `Onarımda +${kapiciRestore(level)} durum yeniler`;
+  if (key === "temizlikci") return `Yıpranmayı %${Math.round((1 - temizlikciFactor(level)) * 100)} azaltıyor`;
+  if (key === "guvenlik") return `Kötü olay/tahliye riskini %${Math.round((1 - guvenlikFactor(level)) * 100)} azaltıyor`;
+  return "";
+}
+
 function renderStaff() {
   const el = document.getElementById("staffList");
   el.innerHTML = Object.keys(STAFF_DEFS).map(key => {
     const def = STAFF_DEFS[key];
-    const owned = state.staff[key];
+    const s = state.staff[key];
+    if (!s.hired) {
+      return `
+        <div class="card">
+          <div class="head">
+            <div class="ic">${def.icon}</div>
+            <div class="info">
+              <div class="title">${def.label}</div>
+              <div class="desc">${def.desc}</div>
+            </div>
+          </div>
+          <div class="foot">
+            <span class="level">İşe alım: ${fmtMoney(def.hireCost)} + ${def.wage}₺/gün</span>
+            <button ${state.money < def.hireCost ? "disabled" : ""} onclick="hireStaff('${key}')">İşe Al</button>
+          </div>
+        </div>
+      `;
+    }
+    const maxed = s.level >= STAFF_MAX_LEVEL;
+    const xpNeed = staffXpToNext(s.level);
+    const xpPct = maxed ? 100 : Math.min(100, (s.xp / xpNeed) * 100);
     return `
       <div class="card">
         <div class="head">
-          <div class="ic">${def.icon}</div>
+          <div class="ic">${def.sprite}</div>
           <div class="info">
-            <div class="title">${def.label}</div>
-            <div class="desc">${def.desc}</div>
+            <div class="title">${def.label} · Sv.${s.level}${maxed ? " (MAX)" : ""}</div>
+            <div class="desc">${staffEffectDesc(key, s.level)}</div>
           </div>
         </div>
+        <div class="bar" style="margin-top:8px;"><div style="width:${xpPct}%; background:#7ad0ff"></div></div>
         <div class="foot">
-          <span class="level">${owned ? `Günlük ücret: ${def.wage}₺` : `İşe alım: ${fmtMoney(def.hireCost)} + ${def.wage}₺/gün`}</span>
-          <button class="${owned ? "owned" : ""}" ${owned || state.money < def.hireCost ? "disabled" : ""} onclick="hireStaff('${key}')">${owned ? "✅ Çalışıyor" : "İşe Al"}</button>
+          <span class="level">${maxed ? "Maksimum seviye" : `XP ${Math.floor(s.xp)}/${xpNeed}`}</span>
+          <button class="owned" disabled>✅ Çalışıyor</button>
         </div>
       </div>
     `;
@@ -480,9 +641,12 @@ function renderStaff() {
 
 function hireStaff(key) {
   const def = STAFF_DEFS[key];
-  if (state.staff[key] || state.money < def.hireCost) return;
+  const s = state.staff[key];
+  if (s.hired || state.money < def.hireCost) return;
   state.money -= def.hireCost;
-  state.staff[key] = true;
+  s.hired = true;
+  s.level = 1;
+  s.xp = 0;
   pushLog(`${def.label} işe alındı.`);
   checkAchievements();
   renderStaff();
@@ -621,6 +785,7 @@ function repairUnit(id) {
   if (u.tenant) u.tenant.happiness = Math.min(100, u.tenant.happiness + 15);
   pushLog(`Daire ${id}: ${u.issue.label} giderildi.`);
   u.issue = null;
+  walkCharacterTo(id, "🔧");
   openUnit(id);
 }
 
@@ -647,6 +812,7 @@ function acceptApplicant(id) {
   pushLog(`Daire ${id}: ${type.icon} ${u.applicant.name} taşındı.`);
   u.applicant = null;
   checkAchievements();
+  walkCharacterTo(id, "🔑");
   closeModal();
 }
 
@@ -680,7 +846,12 @@ function expandBuilding() {
 /* ---------- Day processing (idle core) ---------- */
 function processDay(silent) {
   let income = 0, expenses = DAILY_EXPENSE_BASE;
-  Object.keys(state.staff).forEach(k => { if (state.staff[k]) expenses += STAFF_DEFS[k].wage; });
+  Object.keys(state.staff).forEach(k => {
+    if (state.staff[k].hired) {
+      expenses += STAFF_DEFS[k].wage;
+      gainStaffXp(k, 8, silent);
+    }
+  });
 
   const dMul = decayMultiplier();
   const iMul = issueChanceMultiplier();
@@ -693,9 +864,10 @@ function processDay(silent) {
       const baseChance = u.condition < 40 ? 0.22 : u.condition < 70 ? 0.10 : 0.04;
       if (Math.random() < baseChance * iMul) {
         u.issue = pick(ISSUE_TYPES);
-        if (state.staff.kapici) {
-          u.condition = Math.min(100, u.condition + 15);
-          if (!silent) pushLog(`Daire ${u.id}: ${u.issue.icon} ${u.issue.label} oluştu, kapıcı hemen onardı.`);
+        if (state.staff.kapici.hired) {
+          u.condition = Math.min(100, u.condition + kapiciRestore(state.staff.kapici.level));
+          gainStaffXp("kapici", 6, silent);
+          if (!silent) { pushLog(`Daire ${u.id}: ${u.issue.icon} ${u.issue.label} oluştu, kapıcı hemen onardı.`); walkCharacterTo(u.id, "🔧"); }
           u.issue = null;
         } else {
           if (!silent) pushLog(`Daire ${u.id}: ${u.issue.icon} ${u.issue.label} oluştu!`);
@@ -721,7 +893,8 @@ function processDay(silent) {
         if (!silent) pushLog(`Daire ${u.id}: ${u.tenant.name} kirayı ödemedi.`);
       }
 
-      const moveOutChance = Math.min(1, (state.staff.guvenlik ? 0.5 : 1) / type.patience);
+      const gFactor = state.staff.guvenlik.hired ? guvenlikFactor(state.staff.guvenlik.level) : 1;
+      const moveOutChance = Math.min(1, gFactor / type.patience);
       if (u.tenant.happiness <= 0 && Math.random() < moveOutChance) {
         if (!silent) pushLog(`Daire ${u.id}: ${u.tenant.name} memnuniyetsizlikten taşındı.`);
         state.reputation = Math.max(0, state.reputation - 2);
@@ -766,7 +939,7 @@ function triggerRandomEvent(silent) {
     () => {
       const u = pick(state.units);
       u.condition = Math.max(0, u.condition - 25 * bMul);
-      if (!u.issue && !state.staff.kapici) u.issue = ISSUE_TYPES[rand(0, ISSUE_TYPES.length - 1)];
+      if (!u.issue && !state.staff.kapici.hired) u.issue = ISSUE_TYPES[rand(0, ISSUE_TYPES.length - 1)];
       if (!silent) pushLog(`⛈️ Fırtına Daire ${u.id}'de hasara yol açtı.`);
     },
     () => {

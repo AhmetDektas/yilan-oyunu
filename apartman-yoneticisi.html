@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Apartman Yöneticisi</title>
+<title>Orman Otel</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
   html, body {
@@ -39,7 +39,22 @@
   .stat.money b { color: #f2c14e; }
   .stat.rep b { color: #7ad0ff; }
 
-  #dayProgressWrap { height: 4px; background: #1a1d26; position: sticky; top: 58px; z-index: 6; }
+  /* Resource bar (wood / meat, tap to gather) */
+  #resourceBar {
+    display: flex; gap: 8px; padding: 8px 14px; position: sticky; top: 58px; z-index: 6;
+    background: rgba(18,20,28,.92); border-bottom: 1px solid #262b38;
+  }
+  .resChip {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 6px; border-radius: 10px; border: 1px solid #2c3242;
+    background: linear-gradient(160deg,#232838,#1b1f2a); color: #fff; font-size: 13px; font-weight: 700;
+  }
+  .resChip:active { transform: scale(0.96); }
+  .resChip .tapHint { font-size: 9px; font-weight: 400; color: #7c8698; margin-left: 2px; }
+  #woodChip b { color: #c98a4b; }
+  #huntChip b { color: #e0685a; }
+
+  #dayProgressWrap { height: 4px; background: #1a1d26; position: sticky; top: 100px; z-index: 6; }
   #dayProgressFill { height: 100%; width: 0%; background: linear-gradient(90deg,#4c7cf2,#7ad0ff); transition: width .2s linear; }
 
   /* Tabs */
@@ -54,7 +69,6 @@
   }
   .tabbtn .ic { font-size: 19px; }
   .tabbtn.active { color: #7ad0ff; }
-  .tabbtn .dot { position: absolute; margin-left: 14px; margin-top: -2px; width: 7px; height: 7px; border-radius: 50%; background: #ff5d73; }
 
   .tabpane { display: none; flex: 1; flex-direction: column; }
   .tabpane.active { display: flex; }
@@ -74,10 +88,8 @@
   }
   #sceneSkyline {
     position: absolute; left: 0; right: 0; bottom: 46px; height: 60px;
-    background:
-      linear-gradient(#00000000, #00000000) ,
-      repeating-linear-gradient(90deg, #ffffff14 0 18px, transparent 18px 34px);
-    opacity: .5;
+    background: repeating-linear-gradient(90deg, #1f4d2e88 0 16px, transparent 16px 30px);
+    opacity: .6;
   }
   #sceneFacade {
     position: absolute; left: 50%; transform: translateX(-50%); bottom: 46px;
@@ -98,7 +110,7 @@
     background: linear-gradient(180deg, #3a3f4a, #262b33);
     border-top: 2px solid #4c525f;
   }
-  #kapiciChar {
+  #staffChar {
     position: absolute; bottom: 6px; left: 20px; font-size: 26px;
     transition: left 1s ease-in-out;
     animation: charBob .6s ease-in-out infinite alternate;
@@ -116,7 +128,7 @@
     100% { opacity: 0; transform: translateY(-10px) scale(1); }
   }
 
-  /* Unit grid */
+  /* Room grid */
   #units {
     display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
     padding: 12px;
@@ -156,7 +168,7 @@
   #expandBtn { background: #232838; border: 1px solid #343b4d; }
   #expandBtn:disabled, #skipDayBtn:disabled { opacity: .4; }
 
-  /* Personel / Upgrade cards */
+  /* Personel / Amenity cards */
   .listPane { padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
   .card {
     background: linear-gradient(160deg,#232838,#1b1f2a); border: 1px solid #2c3242; border-radius: 14px; padding: 12px 14px;
@@ -224,14 +236,20 @@
 <div id="app">
   <div id="topbar">
     <button id="buildingBtn" onclick="tapBonus(event)">
-      <div id="buildingIcon">🏢</div>
-      <div id="buildingName">Gökkuşağı Apt.<small>Gün <span id="dayNo">1</span> · dokun: bonus</small></div>
+      <div id="buildingIcon">🏨</div>
+      <div id="buildingName">Orman Otel<small>Gün <span id="dayNo">1</span> · dokun: bahşiş</small></div>
     </button>
     <div class="stats">
       <div class="stat money">💰<b id="moneyStat">0₺</b></div>
       <div class="stat rep">⭐<b id="repStat">50</b></div>
     </div>
   </div>
+
+  <div id="resourceBar">
+    <button class="resChip" id="woodChip" onclick="tapChopWood(event)">🪵 <b id="woodStat">0</b><span class="tapHint">kes</span></button>
+    <button class="resChip" id="huntChip" onclick="tapHunt(event)">🥩 <b id="meatStat">0</b><span class="tapHint">avlan</span></button>
+  </div>
+
   <div id="dayProgressWrap"><div id="dayProgressFill"></div></div>
 
   <div id="tab-bina" class="tabpane active">
@@ -240,14 +258,14 @@
       <div id="sceneSkyline"></div>
       <div id="sceneFacade"></div>
       <div id="sceneGround">
-        <div id="kapiciChar">🧑‍🔧</div>
+        <div id="staffChar">🧑‍🔧</div>
       </div>
     </div>
     <div id="units"></div>
     <div id="log"></div>
     <div id="actionBar">
       <div class="speedRow" id="speedRow"></div>
-      <button id="expandBtn" onclick="expandBuilding()">Kat Ekle</button>
+      <button id="expandBtn" onclick="expandBuilding()">Oda Ekle</button>
       <button id="skipDayBtn" onclick="forceCompleteDay()">Günü Hızlandır ⏩</button>
     </div>
   </div>
@@ -265,9 +283,9 @@
   </div>
 
   <div id="tabbar">
-    <button class="tabbtn active" data-tab="bina" onclick="switchTab('bina')"><span class="ic">🏢</span>Bina</button>
+    <button class="tabbtn active" data-tab="bina" onclick="switchTab('bina')"><span class="ic">🏨</span>Otel</button>
     <button class="tabbtn" data-tab="personel" onclick="switchTab('personel')"><span class="ic">👷</span>Personel</button>
-    <button class="tabbtn" data-tab="yukseltme" onclick="switchTab('yukseltme')"><span class="ic">⬆️</span>Yükseltme</button>
+    <button class="tabbtn" data-tab="yukseltme" onclick="switchTab('yukseltme')"><span class="ic">🛎️</span>Olanaklar</button>
     <button class="tabbtn" data-tab="basarim" onclick="switchTab('basarim')"><span class="ic">🏆</span>Başarım</button>
   </div>
 </div>
@@ -290,24 +308,26 @@
 
 <script>
 /* ---------- Constants ---------- */
-const SAVE_KEY = "apt_sim_save_v2";
+const SAVE_KEY = "hotel_sim_save_v1";
 const DAY_DURATION_MS = 20000;      // real ms per in-game day at 1x speed
 const MAX_OFFLINE_MS = 8 * 60 * 60 * 1000; // cap offline progress at 8h
 const MAX_OFFLINE_DAYS = 200; // hard cap on simulated days regardless of elapsed time
 const MAX_UNITS = 20;
 const STARTING_MONEY = 6000;
-const BASE_RENT = 3200;
+const STARTING_WOOD = 60;
+const BASE_RENT = 3200; // nightly rate
 const DAILY_EXPENSE_BASE = 250;
 const SPEEDS = [1, 2, 4];
+const MEAL_PRICE = 90;
 
 const TENANT_NAMES = ["Ahmet Yılmaz","Ayşe Kaya","Mehmet Demir","Fatma Şahin","Ali Çelik",
   "Zeynep Arslan","Mustafa Doğan","Emine Aydın","Hüseyin Öztürk","Hatice Yıldız",
   "İbrahim Kurt","Elif Aksoy","Ramazan Koç","Sultan Er","Osman Polat"];
 
 const TENANT_TYPES = {
-  student:      { key: "student",      label: "Öğrenci",     icon: "🎓", weight: 35, rentFactor: [0.65, 0.95], baseHappiness: 78, rentSensitivity: 1.4, issueSensitivity: 0.6, patience: 0.75 },
-  family:       { key: "family",       label: "Aile",        icon: "👪", weight: 40, rentFactor: [0.9, 1.25], baseHappiness: 70, rentSensitivity: 1.0, issueSensitivity: 1.3, patience: 1.0 },
-  professional: { key: "professional", label: "Profesyonel", icon: "💼", weight: 25, rentFactor: [1.1, 1.6],  baseHappiness: 62, rentSensitivity: 0.6, issueSensitivity: 1.6, patience: 1.3 },
+  backpacker:   { key: "backpacker",   label: "Sırt Çantalı Gezgin", icon: "🎒", weight: 35, rentFactor: [0.65, 0.95], baseHappiness: 78, rentSensitivity: 1.4, issueSensitivity: 0.6, patience: 0.75 },
+  family:       { key: "family",       label: "Aile",                icon: "👪", weight: 40, rentFactor: [0.9, 1.25], baseHappiness: 70, rentSensitivity: 1.0, issueSensitivity: 1.3, patience: 1.0 },
+  business:     { key: "business",     label: "İş İnsanı",            icon: "💼", weight: 25, rentFactor: [1.1, 1.6],  baseHappiness: 62, rentSensitivity: 0.6, issueSensitivity: 1.6, patience: 1.3 },
 };
 function pickTenantType() {
   const types = Object.values(TENANT_TYPES);
@@ -317,58 +337,68 @@ function pickTenantType() {
   return types[0];
 }
 const ISSUE_TYPES = [
-  { key: "leak", label: "Su Kaçağı", icon: "💧", cost: 600 },
-  { key: "elevator", label: "Asansör Arızası", icon: "🛗", cost: 1200 },
-  { key: "noise", label: "Gürültü Şikayeti", icon: "🔊", cost: 200 },
-  { key: "power", label: "Elektrik Arızası", icon: "⚡", cost: 500 },
-  { key: "trash", label: "Çöp Birikmesi", icon: "🗑️", cost: 150 },
+  { key: "leak",      label: "Su Tesisatı Arızası", icon: "💧", cost: 20 },
+  { key: "boiler",    label: "Isıtma/Kazan Arızası", icon: "🔥", cost: 35 },
+  { key: "noise",     label: "Gürültü Şikayeti",     icon: "🔊", cost: 10 },
+  { key: "generator", label: "Jeneratör Arızası",    icon: "⚡", cost: 25 },
+  { key: "pest",      label: "Haşere İstilası",      icon: "🐜", cost: 8 },
 ];
 
 const STAFF_DEFS = {
-  kapici:     { label: "Kapıcı",      icon: "🧰", sprite: "🧑‍🔧", desc: "Daire arızalarını ücretsiz onarır. Seviye arttıkça onarımda daha çok durum yeniler.", hireCost: 3000, wage: 80 },
-  temizlikci: { label: "Temizlikçi",  icon: "🧹", sprite: "🧑‍🦰", desc: "Bina yıpranma hızını azaltır. Seviye arttıkça etkisi güçlenir.",         hireCost: 2000, wage: 60 },
-  guvenlik:   { label: "Güvenlik",    icon: "🛡️", sprite: "💂", desc: "Kötü olay ve tahliye ihtimalini azaltır. Seviye arttıkça etkisi güçlenir.",  hireCost: 2500, wage: 70 },
+  avci:       { label: "Avcı",        icon: "🏹", sprite: "🥷",   desc: "Her gün otomatik olarak et toplar. Seviye arttıkça verimi artar.", hireCost: 2800, wage: 50 },
+  kapici:     { label: "Teknisyen",   icon: "🧰", sprite: "🧑‍🔧", desc: "Oda arızalarını odun harcamadan anında onarır. Seviye arttıkça daha çok durum yeniler.", hireCost: 3000, wage: 80 },
+  temizlikci: { label: "Temizlikçi",  icon: "🧹", sprite: "🧑‍🦰", desc: "Otel yıpranma hızını azaltır. Seviye arttıkça etkisi güçlenir.",         hireCost: 2000, wage: 60 },
+  guvenlik:   { label: "Güvenlik",    icon: "🛡️", sprite: "💂", desc: "Hayvan saldırısı/kötü olay ve misafir kaybı ihtimalini azaltır. Seviye arttıkça etkisi güçlenir.",  hireCost: 2500, wage: 70 },
 };
 const STAFF_MAX_LEVEL = 15;
 function staffXpToNext(level) { return Math.round(60 * Math.pow(1.22, level - 1)); }
 function kapiciRestore(level) { return 15 + level * 3; }
 function temizlikciFactor(level) { return Math.max(0.15, 0.5 - 0.02 * level); }
 function guvenlikFactor(level) { return Math.max(0.15, 0.5 - 0.02 * level); }
+function avciYield(level) { return 3 + level; }
 
 const UPGRADE_COST_RATIO = 1.75;
 const UPGRADE_DEFS = {
-  rent:       { label: "Kira Danışmanlığı", icon: "💹", desc: "Toplanan kirayı %5 artırır (seviye başı).", baseCost: 2200, max: 20 },
-  applicant:  { label: "Pazarlama Kampanyası", icon: "📣", desc: "Yeni kiracı başvuru şansını artırır.", baseCost: 1800, max: 20 },
-  insulation: { label: "Yalıtım & Bakım", icon: "🧱", desc: "Bina yıpranmasını ve arıza şansını azaltır.", baseCost: 1500, max: 20 },
-  ad:         { label: "Halkla İlişkiler", icon: "📰", desc: "Kötü olayların etkisini azaltır, itibar kazancını artırır.", baseCost: 2000, max: 20 },
+  rent:       { label: "Sıcak Su Sistemi",  icon: "🚿", desc: "Misafirlerin ödediği ücreti %5 artırır (seviye başı).", baseCost: 2200, max: 20 },
+  applicant:  { label: "Rezervasyon Ağı",   icon: "📶", desc: "Yeni misafir rezervasyon şansını artırır.", baseCost: 1800, max: 20 },
+  insulation: { label: "Isıtma Sistemi",    icon: "🔥", desc: "Otel yıpranmasını ve arıza şansını azaltır.", baseCost: 1500, max: 20 },
+  ad:         { label: "Misafir İlişkileri", icon: "🤝", desc: "Kötü olayların etkisini azaltır, itibar kazancını artırır.", baseCost: 2000, max: 20 },
 };
 
 const ACHIEVEMENTS = [
-  { id: "first_tenant", label: "İlk Kiracı", icon: "🏠", desc: "İlk kiracını taşı.", check: s => s.units.some(u => u.tenant), reward: { money: 200 } },
-  { id: "day_10",  label: "10 Gün",  icon: "📅", desc: "10 gün boyunca binayı yönet.",  check: s => s.day >= 10,  reward: { money: 500 } },
-  { id: "day_50",  label: "50 Gün",  icon: "📆", desc: "50 gün boyunca binayı yönet.",  check: s => s.day >= 50,  reward: { money: 2000 } },
-  { id: "day_100", label: "100 Gün", icon: "🗓️", desc: "100 gün boyunca binayı yönet.", check: s => s.day >= 100, reward: { money: 5000 } },
+  { id: "first_tenant", label: "İlk Misafir", icon: "🏨", desc: "İlk misafirini ağırla.", check: s => s.units.some(u => u.tenant), reward: { money: 200 } },
+  { id: "first_hunt",  label: "İlk Av",   icon: "🏹", desc: "İlk kez avlan.", check: s => s.totalMeatCollected > 0, reward: { money: 100 } },
+  { id: "master_hunter", label: "Usta Avcı", icon: "🥩", desc: "Toplamda 500 et topla.", check: s => s.totalMeatCollected >= 500, reward: { money: 1500 } },
+  { id: "day_10",  label: "10 Gün",  icon: "📅", desc: "10 gün boyunca oteli yönet.",  check: s => s.day >= 10,  reward: { money: 500 } },
+  { id: "day_50",  label: "50 Gün",  icon: "📆", desc: "50 gün boyunca oteli yönet.",  check: s => s.day >= 50,  reward: { money: 2000 } },
+  { id: "day_100", label: "100 Gün", icon: "🗓️", desc: "100 gün boyunca oteli yönet.", check: s => s.day >= 100, reward: { money: 5000 } },
   { id: "money_10k",  label: "10.000₺ Kazanç",  icon: "💵", desc: "Toplamda 10.000₺ kazan.",  check: s => s.totalEarned >= 10000,  reward: { reputation: 5 } },
   { id: "money_100k", label: "100.000₺ Kazanç", icon: "💰", desc: "Toplamda 100.000₺ kazan.", check: s => s.totalEarned >= 100000, reward: { reputation: 10 } },
-  { id: "full_house", label: "Tam Doluluk", icon: "🏘️", desc: "Tüm daireleri kirala.", check: s => s.units.length > 0 && s.units.every(u => u.tenant), reward: { money: 1000 } },
-  { id: "full_staff", label: "Kadro Tam", icon: "👷", desc: "Tüm personeli işe al.", check: s => s.staff.kapici.hired && s.staff.temizlikci.hired && s.staff.guvenlik.hired, reward: { reputation: 10 } },
-  { id: "max_floors", label: "Maksimum Bina", icon: "🏗️", desc: `${MAX_UNITS} daireye ulaş.`, check: s => s.units.length >= MAX_UNITS, reward: { money: 5000 } },
-  { id: "mixed_tenants", label: "Karma Bina", icon: "🌈", desc: "Aynı anda üç farklı kiracı tipini bina bulundur.", check: s => new Set(s.units.filter(u => u.tenant).map(u => u.tenant.type)).size >= 3, reward: { reputation: 8 } },
+  { id: "full_house", label: "Tam Doluluk", icon: "🏘️", desc: "Tüm odaları doldur.", check: s => s.units.length > 0 && s.units.every(u => u.tenant), reward: { money: 1000 } },
+  { id: "full_staff", label: "Kadro Tam", icon: "👷", desc: "Tüm personeli işe al.", check: s => s.staff.avci.hired && s.staff.kapici.hired && s.staff.temizlikci.hired && s.staff.guvenlik.hired, reward: { reputation: 10 } },
+  { id: "max_floors", label: "Maksimum Otel", icon: "🏗️", desc: `${MAX_UNITS} odaya ulaş.`, check: s => s.units.length >= MAX_UNITS, reward: { money: 5000 } },
+  { id: "mixed_tenants", label: "Karma Misafir", icon: "🌈", desc: "Aynı anda üç farklı misafir tipini otelde bulundur.", check: s => new Set(s.units.filter(u => u.tenant).map(u => u.tenant.type)).size >= 3, reward: { reputation: 8 } },
 ];
 
 let state = null;
 let activeTab = "bina";
 let tickHandle = null;
 let lastTapBonus = 0;
+let lastChopTap = 0;
+let lastHuntTap = 0;
 
 /* ---------- State ---------- */
 function freshState() {
   return {
     day: 1,
     money: STARTING_MONEY,
+    wood: STARTING_WOOD,
+    meat: 0,
     reputation: 50,
     badMoneyStreak: 0,
     totalEarned: 0,
+    totalMeatCollected: 0,
+    totalWoodChopped: 0,
     dayProgress: 0,
     speed: 1,
     lastActive: Date.now(),
@@ -381,13 +411,14 @@ function freshState() {
       applicant: null,
     })),
     staff: {
+      avci: { hired: false, level: 1, xp: 0 },
       kapici: { hired: false, level: 1, xp: 0 },
       temizlikci: { hired: false, level: 1, xp: 0 },
       guvenlik: { hired: false, level: 1, xp: 0 },
     },
     upgrades: { rent: 0, applicant: 0, insulation: 0, ad: 0 },
     achievements: {},
-    log: ["Binaya hoş geldin! Boş daireler için kiracı bul, personel ve yükseltmelerle işini otomatikleştir."],
+    log: ["Ormanın ortasındaki otele hoş geldin! Odun kes, avlan, misafir ağırla ve yemekhaneden gelir kazan."],
   };
 }
 
@@ -404,6 +435,10 @@ function ensureShape(s) {
   s.upgrades = Object.assign({}, fresh.upgrades, s.upgrades);
   s.achievements = s.achievements || {};
   if (typeof s.totalEarned !== "number") s.totalEarned = 0;
+  if (typeof s.totalMeatCollected !== "number") s.totalMeatCollected = 0;
+  if (typeof s.totalWoodChopped !== "number") s.totalWoodChopped = 0;
+  if (typeof s.wood !== "number") s.wood = 0;
+  if (typeof s.meat !== "number") s.meat = 0;
   if (typeof s.dayProgress !== "number") s.dayProgress = 0;
   if (typeof s.speed !== "number") s.speed = 1;
   if (typeof s.lastActive !== "number") s.lastActive = Date.now();
@@ -447,6 +482,15 @@ function badEventMultiplier() {
   if (state.staff.guvenlik.hired) m *= guvenlikFactor(state.staff.guvenlik.level);
   return Math.max(0.2, m);
 }
+function expandCost() {
+  return Math.round(2000 * Math.pow(state.units.length / 2, 1.6));
+}
+function expandWoodCost() {
+  return Math.round(100 * Math.pow(state.units.length / 2, 1.3));
+}
+function upgradeCost(key) {
+  return Math.round(UPGRADE_DEFS[key].baseCost * Math.pow(UPGRADE_COST_RATIO, state.upgrades[key]));
+}
 
 /* ---------- Staff XP / leveling ---------- */
 function gainStaffXp(key, amount, silent) {
@@ -458,12 +502,6 @@ function gainStaffXp(key, amount, silent) {
     s.level++;
     if (!silent) pushLog(`${STAFF_DEFS[key].icon} ${STAFF_DEFS[key].label} seviye ${s.level} oldu!`);
   }
-}
-function expandCost() {
-  return Math.round(2000 * Math.pow(state.units.length / 2, 1.6));
-}
-function upgradeCost(key) {
-  return Math.round(UPGRADE_DEFS[key].baseCost * Math.pow(UPGRADE_COST_RATIO, state.upgrades[key]));
 }
 
 /* ---------- Floating text ---------- */
@@ -490,6 +528,36 @@ function tapBonus(e) {
   render();
 }
 
+function tapChopWood(e) {
+  const now = Date.now();
+  if (now - lastChopTap < 500) return;
+  lastChopTap = now;
+  const amount = rand(4, 8);
+  state.wood += amount;
+  state.totalWoodChopped += amount;
+  const rect = e.currentTarget.getBoundingClientRect();
+  floatText("+" + amount + " 🪵", rect.left + rect.width / 2 - 14, rect.top, "#c98a4b");
+  checkAchievements();
+  render();
+}
+
+function tapHunt(e) {
+  const now = Date.now();
+  if (now - lastHuntTap < 700) return;
+  lastHuntTap = now;
+  const rect = e.currentTarget.getBoundingClientRect();
+  if (Math.random() < 0.25) {
+    floatText("Kaçtı! 💨", rect.left + rect.width / 2 - 20, rect.top, "#8b95a5");
+  } else {
+    const amount = rand(3, 6);
+    state.meat += amount;
+    state.totalMeatCollected += amount;
+    floatText("+" + amount + " 🥩", rect.left + rect.width / 2 - 14, rect.top, "#e0685a");
+    checkAchievements();
+  }
+  render();
+}
+
 /* ---------- Tabs ---------- */
 function switchTab(tab) {
   activeTab = tab;
@@ -501,11 +569,13 @@ function switchTab(tab) {
   if (tab === "basarim") renderAchievements();
 }
 
-/* ---------- Render: units ---------- */
+/* ---------- Render: rooms ---------- */
 function render() {
   document.getElementById("dayNo").textContent = state.day;
   document.getElementById("moneyStat").textContent = fmtMoney(state.money);
   document.getElementById("repStat").textContent = Math.round(state.reputation);
+  document.getElementById("woodStat").textContent = Math.floor(state.wood);
+  document.getElementById("meatStat").textContent = Math.floor(state.meat);
   document.getElementById("dayProgressFill").style.width = Math.min(100, state.dayProgress * 100) + "%";
 
   renderScene();
@@ -520,9 +590,9 @@ function render() {
     const condColor = u.condition < 40 ? "#d9534f" : u.condition < 70 ? "#f0ad4e" : "#4caf7d";
     div.innerHTML = `
       <div class="cond" style="background:${condColor}"></div>
-      <div class="no">Daire ${u.id}</div>
-      <div class="tenant">${u.tenant ? `${(TENANT_TYPES[u.tenant.type] || {}).icon || ""} ${u.tenant.name}` : (u.applicant ? "🙋 Aday var" : "BOŞ")}</div>
-      <div class="rent">${u.rent.toLocaleString("tr-TR")}₺/ay</div>
+      <div class="no">Oda ${u.id}</div>
+      <div class="tenant">${u.tenant ? `${(TENANT_TYPES[u.tenant.type] || {}).icon || ""} ${u.tenant.name}` : (u.applicant ? "🙋 Rezervasyon var" : "BOŞ")}</div>
+      <div class="rent">${u.rent.toLocaleString("tr-TR")}₺/gece</div>
       ${u.tenant ? `<div class="bar"><div style="width:${happinessPct}%; background:${happinessPct < 35 ? '#d9534f' : happinessPct < 65 ? '#f0ad4e' : '#4caf7d'}"></div></div>` : ""}
       ${u.issue ? `<div class="badge" title="${u.issue.label}">${u.issue.icon}</div>` : ""}
     `;
@@ -535,13 +605,14 @@ function render() {
   speedRow.innerHTML = SPEEDS.map(s => `<button class="speedBtn ${state.speed === s ? "active" : ""}" onclick="setSpeed(${s})">${s}x</button>`).join("");
 
   const eCost = expandCost();
+  const eWood = expandWoodCost();
   const expandBtn = document.getElementById("expandBtn");
   if (state.units.length >= MAX_UNITS) {
     expandBtn.textContent = "Maksimum kapasiteye ulaşıldı";
     expandBtn.disabled = true;
   } else {
-    expandBtn.textContent = `Kat Ekle (+2 Daire) — ${fmtMoney(eCost)}`;
-    expandBtn.disabled = state.money < eCost;
+    expandBtn.textContent = `Oda Ekle (+2) — ${fmtMoney(eCost)} + ${eWood} 🪵`;
+    expandBtn.disabled = state.money < eCost || state.wood < eWood;
   }
 
   save();
@@ -570,7 +641,7 @@ function renderScene() {
 function walkCharacterTo(unitId, emoji) {
   const win = document.querySelector(`.facadeWindow[data-unit="${unitId}"]`);
   const ground = document.getElementById("sceneGround");
-  const charEl = document.getElementById("kapiciChar");
+  const charEl = document.getElementById("staffChar");
   if (!win || !ground || !charEl) return;
 
   const groundRect = ground.getBoundingClientRect();
@@ -589,9 +660,10 @@ function walkCharacterTo(unitId, emoji) {
 
 /* ---------- Render: staff ---------- */
 function staffEffectDesc(key, level) {
+  if (key === "avci") return `Günde ${avciYield(level)} et topluyor`;
   if (key === "kapici") return `Onarımda +${kapiciRestore(level)} durum yeniler`;
   if (key === "temizlikci") return `Yıpranmayı %${Math.round((1 - temizlikciFactor(level)) * 100)} azaltıyor`;
-  if (key === "guvenlik") return `Kötü olay/tahliye riskini %${Math.round((1 - guvenlikFactor(level)) * 100)} azaltıyor`;
+  if (key === "guvenlik") return `Kötü olay/misafir kaybı riskini %${Math.round((1 - guvenlikFactor(level)) * 100)} azaltıyor`;
   return "";
 }
 
@@ -653,7 +725,7 @@ function hireStaff(key) {
   render();
 }
 
-/* ---------- Render: upgrades ---------- */
+/* ---------- Render: amenities ---------- */
 function renderUpgrades() {
   const el = document.getElementById("upgradeList");
   el.innerHTML = Object.keys(UPGRADE_DEFS).map(key => {
@@ -723,47 +795,47 @@ function checkAchievements() {
   });
 }
 
-/* ---------- Unit modal ---------- */
+/* ---------- Room modal ---------- */
 function openUnit(id) {
   const u = state.units.find(x => x.id === id);
   const modal = document.getElementById("modal");
-  let html = `<h3>Daire ${u.id}</h3>`;
+  let html = `<h3>Oda ${u.id}</h3>`;
 
   if (u.tenant) {
     const type = TENANT_TYPES[u.tenant.type] || TENANT_TYPES.family;
     html += `
-      <div class="row"><span>Kiracı</span><span>${type.icon} ${u.tenant.name}</span></div>
+      <div class="row"><span>Misafir</span><span>${type.icon} ${u.tenant.name}</span></div>
       <div class="row"><span>Tip</span><span>${type.label}</span></div>
       <div class="row"><span>Memnuniyet</span><span>${Math.round(u.tenant.happiness)}/100</span></div>
-      <div class="row"><span>Kira</span><span>${u.rent.toLocaleString("tr-TR")}₺</span></div>
-      <div class="row"><span>Bina Durumu</span><span>${u.condition}/100</span></div>
+      <div class="row"><span>Gecelik Ücret</span><span>${u.rent.toLocaleString("tr-TR")}₺</span></div>
+      <div class="row"><span>Oda Durumu</span><span>${u.condition}/100</span></div>
     `;
     if (u.issue) {
       html += `<div class="row"><span>Sorun</span><span>${u.issue.icon} ${u.issue.label}</span></div>`;
-      html += `<button class="primary" onclick="repairUnit(${u.id})">Tamir Et (${u.issue.cost.toLocaleString("tr-TR")}₺)</button>`;
+      html += `<button class="primary" ${state.wood < u.issue.cost ? "disabled" : ""} onclick="repairUnit(${u.id})">Tamir Et (${u.issue.cost} 🪵)</button>`;
     }
-    html += `<button onclick="adjustRent(${u.id}, 200)">Kirayı Artır (+200₺)</button>`;
-    html += `<button onclick="adjustRent(${u.id}, -200)">Kirayı Azalt (-200₺)</button>`;
-    html += `<button class="danger" onclick="evictTenant(${u.id})">Kiracıyı Çıkar</button>`;
+    html += `<button onclick="adjustRent(${u.id}, 200)">Ücreti Artır (+200₺)</button>`;
+    html += `<button onclick="adjustRent(${u.id}, -200)">Ücreti Azalt (-200₺)</button>`;
+    html += `<button class="danger" onclick="evictTenant(${u.id})">Misafiri Çıkar</button>`;
   } else if (u.applicant) {
     const type = TENANT_TYPES[u.applicant.type] || TENANT_TYPES.family;
     html += `
-      <div class="row"><span>Aday</span><span>${type.icon} ${u.applicant.name}</span></div>
+      <div class="row"><span>Rezervasyon</span><span>${type.icon} ${u.applicant.name}</span></div>
       <div class="row"><span>Tip</span><span>${type.label}</span></div>
       <div class="row"><span>Bütçesi</span><span>≤ ${u.applicant.maxRent.toLocaleString("tr-TR")}₺</span></div>
-      <div class="row"><span>Mevcut Kira</span><span>${u.rent.toLocaleString("tr-TR")}₺</span></div>
+      <div class="row"><span>Mevcut Ücret</span><span>${u.rent.toLocaleString("tr-TR")}₺</span></div>
     `;
     html += `<button class="primary" ${u.rent > u.applicant.maxRent ? "disabled" : ""} onclick="acceptApplicant(${u.id})">Kabul Et</button>`;
     html += `<button class="danger" onclick="rejectApplicant(${u.id})">Reddet</button>`;
-    html += `<button onclick="adjustRent(${u.id}, -200)">Kirayı Azalt (-200₺)</button>`;
+    html += `<button onclick="adjustRent(${u.id}, -200)">Ücreti Azalt (-200₺)</button>`;
   } else {
-    html += `<div class="row"><span>Durum</span><span>Boş daire</span></div>`;
-    html += `<div class="row"><span>Listelenen Kira</span><span>${u.rent.toLocaleString("tr-TR")}₺</span></div>`;
-    html += `<button onclick="adjustRent(${u.id}, -200)">Kirayı Azalt (-200₺)</button>`;
-    html += `<button onclick="adjustRent(${u.id}, 200)">Kirayı Artır (+200₺)</button>`;
+    html += `<div class="row"><span>Durum</span><span>Boş oda</span></div>`;
+    html += `<div class="row"><span>Listelenen Ücret</span><span>${u.rent.toLocaleString("tr-TR")}₺</span></div>`;
+    html += `<button onclick="adjustRent(${u.id}, -200)">Ücreti Azalt (-200₺)</button>`;
+    html += `<button onclick="adjustRent(${u.id}, 200)">Ücreti Artır (+200₺)</button>`;
     if (u.issue) {
       html += `<div class="row"><span>Sorun</span><span>${u.issue.icon} ${u.issue.label}</span></div>`;
-      html += `<button class="primary" onclick="repairUnit(${u.id})">Tamir Et (${u.issue.cost.toLocaleString("tr-TR")}₺)</button>`;
+      html += `<button class="primary" ${state.wood < u.issue.cost ? "disabled" : ""} onclick="repairUnit(${u.id})">Tamir Et (${u.issue.cost} 🪵)</button>`;
     }
   }
 
@@ -779,11 +851,11 @@ function closeModal() {
 
 function repairUnit(id) {
   const u = state.units.find(x => x.id === id);
-  if (!u.issue || state.money < u.issue.cost) return;
-  state.money -= u.issue.cost;
+  if (!u.issue || state.wood < u.issue.cost) return;
+  state.wood -= u.issue.cost;
   u.condition = Math.min(100, u.condition + 25);
   if (u.tenant) u.tenant.happiness = Math.min(100, u.tenant.happiness + 15);
-  pushLog(`Daire ${id}: ${u.issue.label} giderildi.`);
+  pushLog(`Oda ${id}: ${u.issue.label} giderildi.`);
   u.issue = null;
   walkCharacterTo(id, "🔧");
   openUnit(id);
@@ -798,7 +870,7 @@ function adjustRent(id, delta) {
 
 function evictTenant(id) {
   const u = state.units.find(x => x.id === id);
-  pushLog(`Daire ${id}: ${u.tenant.name} çıkarıldı.`);
+  pushLog(`Oda ${id}: ${u.tenant.name} otelden çıkarıldı.`);
   state.reputation = Math.max(0, state.reputation - 3);
   u.tenant = null;
   closeModal();
@@ -809,7 +881,7 @@ function acceptApplicant(id) {
   if (!u.applicant || u.rent > u.applicant.maxRent) return;
   const type = TENANT_TYPES[u.applicant.type] || TENANT_TYPES.family;
   u.tenant = { name: u.applicant.name, type: type.key, happiness: type.baseHappiness, unpaidStreak: 0 };
-  pushLog(`Daire ${id}: ${type.icon} ${u.applicant.name} taşındı.`);
+  pushLog(`Oda ${id}: ${type.icon} ${u.applicant.name} otele yerleşti.`);
   u.applicant = null;
   checkAchievements();
   walkCharacterTo(id, "🔑");
@@ -818,15 +890,17 @@ function acceptApplicant(id) {
 
 function rejectApplicant(id) {
   const u = state.units.find(x => x.id === id);
-  pushLog(`Daire ${id}: ${u.applicant.name} reddedildi.`);
+  pushLog(`Oda ${id}: ${u.applicant.name} rezervasyonu reddedildi.`);
   u.applicant = null;
   closeModal();
 }
 
 function expandBuilding() {
   const cost = expandCost();
-  if (state.units.length >= MAX_UNITS || state.money < cost) return;
+  const woodCost = expandWoodCost();
+  if (state.units.length >= MAX_UNITS || state.money < cost || state.wood < woodCost) return;
   state.money -= cost;
+  state.wood -= woodCost;
   const startId = state.units.length + 1;
   for (let i = 0; i < 2 && state.units.length < MAX_UNITS; i++) {
     state.units.push({
@@ -838,7 +912,7 @@ function expandBuilding() {
       applicant: null,
     });
   }
-  pushLog(`Yeni kat eklendi: Daire ${startId}-${startId + 1} inşa edildi.`);
+  pushLog(`Yeni oda inşa edildi: Oda ${startId}-${startId + 1}.`);
   checkAchievements();
   render();
 }
@@ -852,6 +926,12 @@ function processDay(silent) {
       gainStaffXp(k, 8, silent);
     }
   });
+
+  if (state.staff.avci.hired) {
+    const yield_ = avciYield(state.staff.avci.level);
+    state.meat += yield_;
+    state.totalMeatCollected += yield_;
+  }
 
   const dMul = decayMultiplier();
   const iMul = issueChanceMultiplier();
@@ -867,10 +947,10 @@ function processDay(silent) {
         if (state.staff.kapici.hired) {
           u.condition = Math.min(100, u.condition + kapiciRestore(state.staff.kapici.level));
           gainStaffXp("kapici", 6, silent);
-          if (!silent) { pushLog(`Daire ${u.id}: ${u.issue.icon} ${u.issue.label} oluştu, kapıcı hemen onardı.`); walkCharacterTo(u.id, "🔧"); }
+          if (!silent) { pushLog(`Oda ${u.id}: ${u.issue.icon} ${u.issue.label} oluştu, teknisyen hemen onardı.`); walkCharacterTo(u.id, "🔧"); }
           u.issue = null;
         } else {
-          if (!silent) pushLog(`Daire ${u.id}: ${u.issue.icon} ${u.issue.label} oluştu!`);
+          if (!silent) pushLog(`Oda ${u.id}: ${u.issue.icon} ${u.issue.label} oluştu!`);
           if (u.tenant) u.tenant.happiness -= 10;
         }
       }
@@ -890,13 +970,13 @@ function processDay(silent) {
         u.tenant.unpaidStreak = 0;
       } else {
         u.tenant.unpaidStreak = (u.tenant.unpaidStreak || 0) + 1;
-        if (!silent) pushLog(`Daire ${u.id}: ${u.tenant.name} kirayı ödemedi.`);
+        if (!silent) pushLog(`Oda ${u.id}: ${u.tenant.name} ücreti ödemedi.`);
       }
 
       const gFactor = state.staff.guvenlik.hired ? guvenlikFactor(state.staff.guvenlik.level) : 1;
       const moveOutChance = Math.min(1, gFactor / type.patience);
       if (u.tenant.happiness <= 0 && Math.random() < moveOutChance) {
-        if (!silent) pushLog(`Daire ${u.id}: ${u.tenant.name} memnuniyetsizlikten taşındı.`);
+        if (!silent) pushLog(`Oda ${u.id}: ${u.tenant.name} memnuniyetsizlikten ayrıldı.`);
         state.reputation = Math.max(0, state.reputation - 2);
         u.tenant = null;
       }
@@ -905,9 +985,22 @@ function processDay(silent) {
       const type = pickTenantType();
       const maxRent = Math.round(u.rent * (type.rentFactor[0] + Math.random() * (type.rentFactor[1] - type.rentFactor[0])));
       u.applicant = { name, maxRent, type: type.key };
-      if (!silent) pushLog(`Daire ${u.id}: ${type.icon} ${name} (${type.label}) başvurdu.`);
+      if (!silent) pushLog(`Oda ${u.id}: ${type.icon} ${name} (${type.label}) rezervasyon yaptı.`);
     }
   });
+
+  // Yemekhane: convert stocked meat into meals sold each day.
+  const occupied = state.units.filter(u => u.tenant).length;
+  const mealDemand = Math.max(1, occupied);
+  const mealsSold = Math.min(Math.floor(state.meat), mealDemand);
+  if (mealsSold > 0) {
+    state.meat -= mealsSold;
+    income += mealsSold * MEAL_PRICE;
+  }
+  if (mealsSold < mealDemand && !silent) {
+    pushLog("Yemekhanede et sıkıntısı yaşandı, bazı misafirler aç kaldı.");
+    state.reputation = Math.max(0, state.reputation - 1);
+  }
 
   state.money += income - expenses;
   state.totalEarned += income;
@@ -930,31 +1023,33 @@ function triggerRandomEvent(silent) {
       if (avgCondition < 55) {
         const fine = Math.round(rand(500, 1500) * bMul);
         state.money -= fine;
-        if (!silent) pushLog(`🏛️ Belediye denetimi: bina bakımsız bulundu, ${fine.toLocaleString("tr-TR")}₺ ceza kesildi.`);
+        if (!silent) pushLog(`🏛️ Sağlık denetimi: otel bakımsız bulundu, ${fine.toLocaleString("tr-TR")}₺ ceza kesildi.`);
       } else {
         state.reputation = Math.min(100, state.reputation + 3);
-        if (!silent) pushLog("🏛️ Belediye denetimi başarıyla geçildi, itibarın arttı.");
+        if (!silent) pushLog("🏛️ Sağlık denetimi başarıyla geçildi, itibarın arttı.");
       }
     },
     () => {
       const u = pick(state.units);
       u.condition = Math.max(0, u.condition - 25 * bMul);
+      const stolenMeat = Math.min(state.meat, Math.round(rand(5, 15) * bMul));
+      state.meat -= stolenMeat;
       if (!u.issue && !state.staff.kapici.hired) u.issue = ISSUE_TYPES[rand(0, ISSUE_TYPES.length - 1)];
-      if (!silent) pushLog(`⛈️ Fırtına Daire ${u.id}'de hasara yol açtı.`);
+      if (!silent) pushLog(`🐺 Vahşi hayvan sürüsü Oda ${u.id}'ye saldırdı, ${stolenMeat} et çalındı.`);
     },
     () => {
       state.reputation = Math.min(100, state.reputation + 5);
-      if (!silent) pushLog("📱 Sosyal medyada bina övgüyle anıldı! İtibar arttı.");
+      if (!silent) pushLog("📱 Gezginler otelden övgüyle bahsetti! İtibar arttı.");
     },
     () => {
-      const bonus = rand(500, 1200);
-      state.money += bonus;
-      state.totalEarned += bonus;
-      if (!silent) pushLog(`🎁 Beklenmedik gelir: ${bonus.toLocaleString("tr-TR")}₺ kazandın.`);
+      const bonus = rand(30, 80);
+      state.wood += bonus;
+      state.totalWoodChopped += bonus;
+      if (!silent) pushLog(`🪓 Ormanda değerli bir kereste yığını buldun: +${bonus} 🪵.`);
     },
     () => {
       state.reputation = Math.max(0, state.reputation - 4 * bMul);
-      if (!silent) pushLog("📝 Kiracılardan toplu şikayet dilekçesi geldi. İtibar düştü.");
+      if (!silent) pushLog("📝 Misafirlerden toplu şikayet geldi. İtibar düştü.");
     },
   ];
   pick(events)();
@@ -964,7 +1059,7 @@ function checkGameOver() {
   if (state.badMoneyStreak >= 3) {
     render();
     document.getElementById("gameOverText").textContent =
-      `${state.day} gün yönettin. Bina iflas etti ve devretmek zorunda kaldın.`;
+      `${state.day} gün yönettin. Otel iflas etti ve devretmek zorunda kaldın.`;
     document.getElementById("gameOver").classList.add("show");
     localStorage.removeItem(SAVE_KEY);
     clearInterval(tickHandle);

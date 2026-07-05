@@ -10,7 +10,10 @@ using UnityEngine.AI;
 /// hotel front and raid (damages a random room + steals stockpiled meat,
 /// mitigated by hired Güvenlik) before respawning elsewhere after a
 /// delay. The player can kill it first via PlayerController's
-/// auto-attack for a guaranteed meat drop.
+/// auto-attack for a guaranteed meat drop. approachChance itself grows
+/// over the run via GameManager.AnimalAggressionBonus() (day-based
+/// difficulty ramp), so animals get bolder the longer the hotel survives
+/// instead of staying at a flat difficulty forever.
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 public class Animal : MonoBehaviour
@@ -68,7 +71,8 @@ public class Animal : MonoBehaviour
         if (Time.time >= nextDecisionAt)
         {
             nextDecisionAt = Time.time + Random.Range(decisionIntervalMin, decisionIntervalMax);
-            if (state == AnimalState.Wander && Random.value < approachChance * gFactor * wFactor)
+            double aggression = Mathf.Clamp01((float)(approachChance + GameManager.Instance.AnimalAggressionBonus()));
+            if (state == AnimalState.Wander && Random.value < aggression * gFactor * wFactor)
             {
                 state = AnimalState.Approach;
             }

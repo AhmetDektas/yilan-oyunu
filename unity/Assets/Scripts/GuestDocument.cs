@@ -42,9 +42,11 @@ public static class GuestDocumentGenerator
     static readonly string[] TroubleOccupations = { "Kaçak Avcı", "Silah Taciri", "Belgesiz Gezgin", "Kaçakçı" };
     static readonly string[] TroubleItems = { "Bilinmeyen Paket", "Belgesiz Silah", "Gizli Çanta", "Şüpheli Kutu" };
 
-    public static GuestDocument Generate(GuestTypeKey type)
+    /// <param name="troubleChanceBonus">Added to the base trouble chance (e.g. GameManager's day-based difficulty ramp) — kept as a plain parameter, not a GameManager reference, so this class stays UnityEngine-free.</param>
+    public static GuestDocument Generate(GuestTypeKey type, double troubleChanceBonus = 0)
     {
-        bool isTrouble = Rng.NextDouble() < TroubleChance;
+        double troubleChance = Math.Min(0.9, TroubleChance + troubleChanceBonus);
+        bool isTrouble = Rng.NextDouble() < troubleChance;
         var doc = new GuestDocument { IsTrouble = isTrouble };
 
         if (isTrouble && Rng.NextDouble() < TroubleTellChance)

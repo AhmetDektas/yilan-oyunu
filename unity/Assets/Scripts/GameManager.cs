@@ -28,6 +28,22 @@ public class GameManager : MonoBehaviour
     [Tooltip("Her gün, içeri alınmış bir 'sorunlu' misafirin vurup kaçma ihtimali.")]
     public double troubleStrikeChancePerDay = 0.25;
 
+    [Header("Zorluk Eğrisi")]
+    [Tooltip("Zorluğun (hayvan saldırganlığı, sorunlu misafir oranı) tavana ulaştığı gün. Oyun tek bir gün sınırında bitmiyor — gün ilerledikçe kademeli zorlaşır.")]
+    public int difficultyRampDays = 40;
+    [Tooltip("Tavan güne ulaşıldığında Animal.approachChance'e eklenecek en yüksek bonus.")]
+    public double maxAnimalAggressionBonus = 0.35;
+    [Tooltip("Tavan güne ulaşıldığında yeni rezervasyonların 'sorunlu' olma ihtimaline eklenecek en yüksek bonus.")]
+    public double maxTroubleChanceBonus = 0.15;
+
+    [Header("Sürü Gecesi (opsiyonel olay)")]
+    [Tooltip("Boş bırakılırsa bu özellik devre dışı kalır. Atanırsa her swarmNightEveryDays günde bir, otelin çevresine ekstra hayvan doğar.")]
+    public GameObject animalPrefab;
+    public Transform hotelFrontMarker;
+    public Vector3 animalSpawnAreaMin, animalSpawnAreaMax;
+    public int swarmNightEveryDays = 10;
+    public int swarmNightExtraAnimals = 2;
+
     [Header("Kaydetme")]
     public float autosaveIntervalSeconds = 30f;
 
@@ -188,6 +204,7 @@ public class GameManager : MonoBehaviour
 
         State.badMoneyStreak = State.money < 0 ? State.badMoneyStreak + 1 : 0;
         State.day++;
+        MaybeTriggerSwarmNight();
         CheckAchievements();
         OnDayProcessed?.Invoke();
 
@@ -277,7 +294,7 @@ public class GameManager : MonoBehaviour
         var def = GuestTypes.Defs[type];
         double maxRent = Math.Round(u.rent * (def.RentFactorMin + rng.NextDouble() * (def.RentFactorMax - def.RentFactorMin)));
         string name = GuestNames[rng.Next(GuestNames.Length)];
-        var doc = GuestDocumentGenerator.Generate(type);
+        var doc = GuestDocumentGenerator.Generate(type, TroubleChanceBonus());
         u.applicant = new Booking { name = name, type = type, maxRent = maxRent, doc = doc };
         Log($"Oda {u.id}: {def.Icon} {name} ({def.Label}) rezervasyon yaptı, kimliği kontrol bekliyor.");
     }
@@ -312,6 +329,37 @@ public class GameManager : MonoBehaviour
 
     /// <summary>Wall/fence amenity's mitigation factor (1 = no mitigation, lower = safer). Used by Animal for approach odds and here for raid severity.</summary>
     public double WallFactor() => AmenitySystem.WallFactor(State.upgrades[UpgradeKey.Wall]);
+
+    /// <summary>0 at day 0, 1 once State.day reaches difficultyRampDays — the single knob the day-based difficulty curve scales off of, so the game keeps escalating instead of plateauing.</summary>
+    public double DifficultyFactor() => Mathf.Clamp01((float)State.day / Mathf.Max(1, difficultyRampDays));
+
+    /// <summary>Added to Animal.approachChance so animals get bolder the longer the hotel survives.</summary>
+    public double AnimalAggressionBonus() => DifficultyFactor() * maxAnimalAggressionBonus;
+
+    /// <summary>Added to GuestDocumentGenerator's base trouble chance for the same reason.</summary>
+    public double TroubleChanceBonus() => DifficultyFactor() * maxTroubleChanceBonus;
+
+    /// <summary>Every swarmNightEveryDays days, spawns extra animals near the hotel for a one-off spike in pressure. No-ops if animalPrefab isn't assigned (fully optional).</summary>
+    void MaybeTriggerSwarmNight()
+    {
+        if (animalPrefab == null || swarmNightEveryDays <= 0) return;
+        if (State.day == 0 || State.day % swarmNightEveryDays != 0) return;
+
+        for (int i = 0; i < swarmNightExtraAnimals; i++)
+        {
+            Vector3 pos = new Vector3(
+                rng.Next((int)animalSpawnAreaMin.x, (int)animalSpawnAreaMax.x + 1),
+                animalSpawnAreaMin.y,
+                rng.Next((int)animalSpawnAreaMin.z, (int)animalSpawnAreaMax.z + 1));
+            var go = Instantiate(animalPrefab, pos, Quaternion.identity);
+            var a = go.GetComponent<Animal>();
+            if (a == null) continue;
+            a.wanderAreaMin = animalSpawnAreaMin;
+            a.wanderAreaMax = animalSpawnAreaMax;
+            if (hotelFrontMarker != null) a.hotelFrontMarker = hotelFrontMarker;
+        }
+        Log($"🌙 Sürü gecesi! Otele doğru {swarmNightExtraAnimals} yeni hayvan geldi.");
+    }
 
     void TriggerRandomEvent()
     {

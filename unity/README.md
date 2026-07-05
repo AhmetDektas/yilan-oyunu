@@ -283,6 +283,38 @@ Sayıları `GuestDocument.cs`'in başındaki `TroubleChance` /
 `TroubleTellChance` / `FalseFlagChance` sabitlerinden, vurma sıklığını
 ise `GameManager.troubleStrikeChancePerDay`'den ayarlayabilirsin.
 
+## Süreklilik: oyun neden 60. günde de sıkıcı olmuyor
+
+Gün sayısı ilerledikçe hiçbir şey otomatik zorlaşmıyor olsaydı oyun
+belli bir noktadan sonra düz bir çizgiye (para birikince hiçbir tehdit
+kalmaz) dönerdi. Bunu önlemek için `GameManager`'a gün bazlı bir
+**zorluk eğrisi** eklendi:
+
+- `DifficultyFactor()` — gün 0'da 0, `difficultyRampDays` (varsayılan
+  40) güne ulaşınca 1 olan, doğrusal artan tek bir katsayı.
+- `AnimalAggressionBonus()` — bu katsayıyla `maxAnimalAggressionBonus`
+  (varsayılan 0.35) çarpılıp `Animal.approachChance`'e eklenir; yani
+  hayvanlar oyun ilerledikçe otele/duvara saldırma kararını daha sık
+  alır (`GuvenlikFactor`/`WallFactor` savunmaları hâlâ üstüne çarpımsal
+  olarak etki ediyor, yani iyi savunma bu artışı dengeler).
+- `TroubleChanceBonus()` — aynı katsayıyla `maxTroubleChanceBonus`
+  (varsayılan 0.15) çarpılıp yeni rezervasyonların "sorunlu" olma
+  ihtimaline eklenir (`GuestDocumentGenerator.Generate`'e parametre
+  olarak geçiyor) — yani kimlik kontrolü de zamanla daha riskli hâle
+  gelir, dikkatsizleşmeye karşı bir fren.
+- **Sürü gecesi (opsiyonel):** `animalPrefab`/`hotelFrontMarker`/
+  `animalSpawnAreaMin`/`Max` alanlarını doldurursan, her
+  `swarmNightEveryDays` (varsayılan 10) günde bir `swarmNightExtraAnimals`
+  (varsayılan 2) tane ekstra hayvan otelin çevresinde doğar — düz bir
+  zorluk artışı yerine ara sıra sivri bir "baskın gecesi" hissi katar.
+  Alanları boş bırakırsan bu özellik tamamen devre dışı kalır, kurulum
+  zorunlu değil.
+
+Bütün eşik değerler Inspector'dan ayarlanabilir; oyunun "60 gün" gibi
+sabit bir bitişi yok — zorluk `difficultyRampDays`'ten sonra da (1
+katsayısında) sabitlenip sürüyor, yani asıl hedef en yüksek günü/parayı
+görmek.
+
 ## Notlar
 
 - Sayılar/denge (kira, maliyetler, seviye eğrileri, avcı verimi, yemekhane

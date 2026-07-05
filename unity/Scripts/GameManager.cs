@@ -24,6 +24,8 @@ public class GameManager : MonoBehaviour
     public double baseRent = 3200;
     public double dailyExpenseBase = 250;
     public double mealPrice = 90;
+    [Tooltip("Her gün, içeri alınmış bir 'sorunlu' misafirin vurup kaçma ihtimali.")]
+    public double troubleStrikeChancePerDay = 0.25;
 
     public GameState State { get; private set; }
 
@@ -109,8 +111,18 @@ public class GameManager : MonoBehaviour
                     TriggerIssue(u);
             }
 
-            if (u.tenant != null) ProcessGuest(u, rentMul, ref income);
-            else if (u.applicant == null) MaybeSpawnBooking(u);
+            if (u.tenant != null && u.tenant.isTrouble && rng.NextDouble() < troubleStrikeChancePerDay)
+            {
+                TroubleGuestStrikes(u);
+            }
+            else if (u.tenant != null)
+            {
+                ProcessGuest(u, rentMul, ref income);
+            }
+            else if (u.applicant == null)
+            {
+                MaybeSpawnBooking(u);
+            }
         }
 
         // Yemekhane: convert stocked meat into meals sold, scaled by occupancy.
@@ -160,6 +172,21 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// A guest let in despite a suspicious ID check finally makes their
+    /// move: steals cash from the till and disappears (room becomes
+    /// vacant, i.e. guest count drops too), on a random later day rather
+    /// than the moment you admitted them.
+    /// </summary>
+    void TroubleGuestStrikes(RoomUnit u)
+    {
+        int stolen = (int)Math.Min(State.money, rng.Next(200, 801));
+        State.money -= stolen;
+        State.reputation = Math.Max(0, State.reputation - 4);
+        Log($"😨 Oda {u.id}: {u.tenant.name} aslında sorun çıkarmaya gelmiş! {stolen:N0}₺ çalıp gece yarısı kayıplara karıştı.");
+        u.tenant = null;
+    }
+
     void ProcessGuest(RoomUnit u, double rentMul, ref double income)
     {
         var type = GuestTypes.Defs[u.tenant.type];
@@ -200,8 +227,9 @@ public class GameManager : MonoBehaviour
         var def = GuestTypes.Defs[type];
         double maxRent = Math.Round(u.rent * (def.RentFactorMin + rng.NextDouble() * (def.RentFactorMax - def.RentFactorMin)));
         string name = GuestNames[rng.Next(GuestNames.Length)];
-        u.applicant = new Booking { name = name, type = type, maxRent = maxRent };
-        Log($"Oda {u.id}: {def.Icon} {name} ({def.Label}) rezervasyon yaptı.");
+        var doc = GuestDocumentGenerator.Generate(type);
+        u.applicant = new Booking { name = name, type = type, maxRent = maxRent, doc = doc };
+        Log($"Oda {u.id}: {def.Icon} {name} ({def.Label}) rezervasyon yaptı, kimliği kontrol bekliyor.");
     }
 
     double RentMultiplier() => 1 + 0.05 * State.upgrades[UpgradeKey.Rent];
@@ -307,12 +335,12 @@ public class GameManager : MonoBehaviour
 
     // ---- Player actions (room management UI) ----
 
-    public void AcceptBooking(int unitId)
+    public void AcceptBooking(int unitId, bool isTrouble = false)
     {
         var u = State.units.First(x => x.id == unitId);
         if (u.applicant == null || u.rent > u.applicant.maxRent) return;
         var def = GuestTypes.Defs[u.applicant.type];
-        u.tenant = new Guest { name = u.applicant.name, type = u.applicant.type, happiness = def.BaseHappiness };
+        u.tenant = new Guest { name = u.applicant.name, type = u.applicant.type, happiness = def.BaseHappiness, isTrouble = isTrouble };
         Log($"Oda {unitId}: {def.Icon} {u.tenant.name} otele yerleşti.");
         u.applicant = null;
         CheckAchievements();
@@ -324,6 +352,44 @@ public class GameManager : MonoBehaviour
         if (u.applicant == null) return;
         Log($"Oda {unitId}: {u.applicant.name} rezervasyonu reddedildi.");
         u.applicant = null;
+    }
+
+    /// <summary>
+    /// "Papers, Please"-style verdict on a pending booking. The player
+    /// only sees the visible clues (GuestDocument.IsSuspicious, claimed
+    /// occupation/item) — IsTrouble is the hidden ground truth. Letting a
+    /// trouble guest in doesn't punish you immediately: they move in
+    /// like anyone else and only strike (steal money + vacate the room,
+    /// see TroubleGuestStrikes) on a random later day, via
+    /// troubleStrikeChancePerDay in ProcessDay. Correctly turning one
+    /// away is rewarded; wrongly turning away a legitimate guest costs a
+    /// little reputation too, so blanket rejection isn't a free strategy.
+    /// </summary>
+    public void ResolveEntryDecision(int unitId, bool allowIn)
+    {
+        var u = State.units.First(x => x.id == unitId);
+        if (u.applicant == null || u.applicant.doc == null) return;
+        var booking = u.applicant;
+        var doc = booking.doc;
+
+        if (allowIn)
+        {
+            AcceptBooking(unitId, doc.IsTrouble);
+        }
+        else
+        {
+            if (doc.IsTrouble)
+            {
+                State.reputation = Math.Min(100, State.reputation + 3);
+                Log($"✅ {booking.name} reddedildi — şüpheliymiş, doğru karar verdin.");
+            }
+            else
+            {
+                State.reputation = Math.Max(0, State.reputation - 2);
+                Log($"😕 {booking.name} haksız yere reddedildi, dedikodu yayıldı.");
+            }
+            u.applicant = null;
+        }
     }
 
     public void RepairUnit(int unitId)

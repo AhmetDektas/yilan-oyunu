@@ -1,13 +1,16 @@
 using UnityEngine;
+using UnityEngine.AI;
 
 /// <summary>
-/// Wanders a rectangular area; periodically decides to approach the
-/// hotel instead. If it reaches the hotel unopposed, it raids (damages a
-/// random room + steals stockpiled meat, mitigated by hired Güvenlik)
-/// then respawns elsewhere after a delay. The player can kill it first
-/// via PlayerController's tap-to-attack for a guaranteed meat drop.
+/// Wanders a rectangular area (via NavMeshAgent, same pathfinding
+/// approach as PlayerController) and periodically decides to approach
+/// the hotel instead. If it reaches the hotel unopposed, it raids
+/// (damages a random room + steals stockpiled meat, mitigated by hired
+/// Güvenlik) then respawns elsewhere after a delay. The player can kill
+/// it first via PlayerController's tap-to-attack for a guaranteed meat
+/// drop.
 /// </summary>
-[RequireComponent(typeof(Collider2D))]
+[RequireComponent(typeof(NavMeshAgent))]
 public class Animal : MonoBehaviour
 {
     [Header("Sağlık")]
@@ -16,8 +19,8 @@ public class Animal : MonoBehaviour
     [Header("Hareket")]
     public float wanderSpeed = 1.2f;
     public float approachSpeed = 2.1f;
-    public Vector2 wanderAreaMin;
-    public Vector2 wanderAreaMax;
+    public Vector3 wanderAreaMin;
+    public Vector3 wanderAreaMax;
     [Tooltip("Otelin önündeki, hayvanın saldırı için hedeflediği nokta.")]
     public Transform hotelFrontMarker;
 
@@ -33,16 +36,17 @@ public class Animal : MonoBehaviour
     int hp;
     enum AnimalState { Wander, Approach }
     AnimalState state = AnimalState.Wander;
-    Vector2 wanderTarget;
     float nextDecisionAt;
-    SpriteRenderer sr;
-    Collider2D col;
+    NavMeshAgent agent;
+    Renderer rend;
+    Collider col;
 
     void Awake()
     {
         hp = maxHp;
-        sr = GetComponent<SpriteRenderer>();
-        col = GetComponent<Collider2D>();
+        agent = GetComponent<NavMeshAgent>();
+        rend = GetComponentInChildren<Renderer>();
+        col = GetComponent<Collider>();
     }
 
     void Update()
@@ -50,6 +54,7 @@ public class Animal : MonoBehaviour
         if (IsDead) return;
 
         double gFactor = GameManager.Instance.GuvenlikFactor();
+        agent.speed = state == AnimalState.Approach ? approachSpeed : wanderSpeed;
 
         if (Time.time >= nextDecisionAt)
         {
@@ -57,22 +62,21 @@ public class Animal : MonoBehaviour
             if (state == AnimalState.Wander && Random.value < approachChance * gFactor)
             {
                 state = AnimalState.Approach;
+                if (hotelFrontMarker != null) agent.SetDestination(hotelFrontMarker.position);
             }
             else
             {
                 state = AnimalState.Wander;
-                wanderTarget = new Vector2(Random.Range(wanderAreaMin.x, wanderAreaMax.x), Random.Range(wanderAreaMin.y, wanderAreaMax.y));
+                Vector3 t = new Vector3(
+                    Random.Range(wanderAreaMin.x, wanderAreaMax.x),
+                    transform.position.y,
+                    Random.Range(wanderAreaMin.z, wanderAreaMax.z));
+                agent.SetDestination(t);
             }
         }
 
-        Vector2 targetPos = (state == AnimalState.Approach && hotelFrontMarker != null)
-            ? (Vector2)hotelFrontMarker.position
-            : wanderTarget;
-        float speed = state == AnimalState.Approach ? approachSpeed : wanderSpeed;
-        transform.position = Vector2.MoveTowards(transform.position, targetPos, speed * Time.deltaTime);
-
         if (state == AnimalState.Approach && hotelFrontMarker != null &&
-            Vector2.Distance(transform.position, hotelFrontMarker.position) < 0.3f)
+            Vector3.Distance(transform.position, hotelFrontMarker.position) < 0.6f)
         {
             GameManager.Instance.AnimalRaid();
             Die();
@@ -91,8 +95,9 @@ public class Animal : MonoBehaviour
     void Die()
     {
         IsDead = true;
-        if (sr != null) sr.enabled = false;
-        col.enabled = false;
+        if (rend != null) rend.enabled = false;
+        if (col != null) col.enabled = false;
+        agent.enabled = false;
         Invoke(nameof(Respawn), Random.Range(respawnDelayMin, respawnDelayMax));
     }
 
@@ -101,8 +106,13 @@ public class Animal : MonoBehaviour
         hp = maxHp;
         IsDead = false;
         state = AnimalState.Wander;
-        transform.position = new Vector2(Random.Range(wanderAreaMin.x, wanderAreaMax.x), Random.Range(wanderAreaMin.y, wanderAreaMax.y));
-        if (sr != null) sr.enabled = true;
-        col.enabled = true;
+        Vector3 pos = new Vector3(
+            Random.Range(wanderAreaMin.x, wanderAreaMax.x),
+            transform.position.y,
+            Random.Range(wanderAreaMin.z, wanderAreaMax.z));
+        agent.enabled = true;
+        agent.Warp(pos);
+        if (rend != null) rend.enabled = true;
+        if (col != null) col.enabled = true;
     }
 }

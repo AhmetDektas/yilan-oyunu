@@ -29,6 +29,8 @@ public class Guest
     public GuestTypeKey type;
     public double happiness = 70;
     public int unpaidStreak;
+    /// <summary>True if this guest was admitted despite a suspicious ID check — they will eventually strike (steal money and flee) on a random later day.</summary>
+    public bool isTrouble;
 }
 
 [Serializable]
@@ -37,6 +39,7 @@ public class Booking
     public string name;
     public GuestTypeKey type;
     public double maxRent;
+    public GuestDocument doc;
 }
 
 [Serializable]

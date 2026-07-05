@@ -5,14 +5,14 @@ public enum DropZoneType { Wood, Meat }
 /// <summary>
 /// Attach to the Yemekhane and Depo trigger areas. Walking a carrying
 /// PlayerController into this zone empties the matching carry into the
-/// GameManager stockpile. Collider2D must have "Is Trigger" checked.
+/// GameManager stockpile. Collider must have "Is Trigger" checked.
 /// </summary>
-[RequireComponent(typeof(Collider2D))]
+[RequireComponent(typeof(Collider))]
 public class DropZone : MonoBehaviour
 {
     public DropZoneType type;
 
-    void OnTriggerStay2D(Collider2D other)
+    void OnTriggerStay(Collider other)
     {
         var player = other.GetComponent<PlayerController>();
         if (player == null) return;

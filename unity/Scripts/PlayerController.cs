@@ -1,50 +1,63 @@
 using UnityEngine;
+using UnityEngine.AI;
 
 /// <summary>
-/// Tap-to-move player character for the live gathering map. Tapping empty
-/// ground walks there; tapping a ResourceTree walks over and chops it
-/// (wood accumulates as carry); tapping an Animal chases and attacks it
-/// with the axe (meat accumulates as carry on kill). Walk into a DropZone
-/// to empty the matching carry into GameManager's stockpile.
+/// Tap-to-move player character. Movement/pathfinding pattern adapted
+/// from KaganAyten's Click-MoveSource repo (raycast to ground ->
+/// NavMeshAgent.SetDestination -> animator "IsWalking" sync) so the
+/// character actually paths around trees/the hotel instead of walking
+/// through them. Chop/attack/carry logic layers on top for our
+/// gathering loop.
 ///
-/// Requires: a Collider2D on this GameObject (for DropZone trigger
-/// detection) and a Rigidbody2D set to Kinematic (2D physics needs at
-/// least one Rigidbody2D in a trigger pair).
+/// Setup: Window > AI > Navigation, mark the ground plane Navigation
+/// Static + Walkable, mark tree/hotel/animal colliders Navigation
+/// Static + Not Walkable, then Bake. This GameObject needs a
+/// NavMeshAgent + a (kinematic) Rigidbody + a non-trigger Collider.
 /// </summary>
-[RequireComponent(typeof(Collider2D))]
+[RequireComponent(typeof(NavMeshAgent))]
+[RequireComponent(typeof(Rigidbody))]
 public class PlayerController : MonoBehaviour
 {
-    [Header("Hareket")]
-    public float moveSpeed = 3f;
-    public Camera cam;
-
     [Header("Toplama")]
-    public float chopRange = 0.9f;
-    public float attackRange = 0.9f;
+    public float chopRange = 1.2f;
+    public float attackRange = 1.2f;
     public float chopCooldown = 1.1f;
     public float attackCooldown = 0.45f;
     public int attackDamage = 30;
     public int carryCap = 20;
 
+    [Header("Referanslar")]
+    public Camera cam;
+    public Animator animator;
+    public string isWalkingParam = "IsWalking";
+    public LayerMask tapMask = ~0;
+
     public int CarryWood { get; private set; }
     public int CarryMeat { get; private set; }
 
-    Vector2 target;
+    NavMeshAgent agent;
     ResourceTree pendingChop;
     Animal pendingAttack;
     float lastChopAt = -10f;
     float lastAttackAt = -10f;
 
+    void Awake()
+    {
+        agent = GetComponent<NavMeshAgent>();
+        var rb = GetComponent<Rigidbody>();
+        rb.isKinematic = true;
+    }
+
     void Start()
     {
-        target = transform.position;
         if (cam == null) cam = Camera.main;
     }
 
     void Update()
     {
         HandleInput();
-        MoveTowardTarget();
+        ChaseAttackTarget();
+        SyncAnimator();
         TryChop();
         TryAttack();
     }
@@ -56,36 +69,37 @@ public class PlayerController : MonoBehaviour
         if (!tapped) return;
 
         Vector3 screenPos = Input.touchCount > 0 ? (Vector3)Input.GetTouch(0).position : Input.mousePosition;
-        Vector2 world = cam.ScreenToWorldPoint(screenPos);
-        var hit = Physics2D.OverlapPoint(world);
+        Ray ray = cam.ScreenPointToRay(screenPos);
 
-        if (hit != null)
-        {
-            var tree = hit.GetComponent<ResourceTree>();
-            if (tree != null) { pendingChop = tree; pendingAttack = null; target = tree.transform.position; return; }
+        if (!Physics.Raycast(ray, out RaycastHit hit, 500f, tapMask)) return;
 
-            var animal = hit.GetComponent<Animal>();
-            if (animal != null && !animal.IsDead) { pendingAttack = animal; pendingChop = null; target = animal.transform.position; return; }
-        }
+        var tree = hit.collider.GetComponent<ResourceTree>();
+        if (tree != null) { pendingChop = tree; pendingAttack = null; agent.SetDestination(tree.transform.position); return; }
+
+        var animal = hit.collider.GetComponent<Animal>();
+        if (animal != null && !animal.IsDead) { pendingAttack = animal; pendingChop = null; agent.SetDestination(animal.transform.position); return; }
 
         pendingChop = null;
         pendingAttack = null;
-        target = world;
+        if (NavMesh.SamplePosition(hit.point, out NavMeshHit navHit, 2f, NavMesh.AllAreas))
+            agent.SetDestination(navHit.position);
     }
 
-    void MoveTowardTarget()
+    void ChaseAttackTarget()
     {
-        if (pendingAttack != null && !pendingAttack.IsDead) target = pendingAttack.transform.position;
+        if (pendingAttack != null && !pendingAttack.IsDead)
+            agent.SetDestination(pendingAttack.transform.position);
+    }
 
-        Vector2 pos = transform.position;
-        if (Vector2.Distance(pos, target) > 0.05f)
-            transform.position = Vector2.MoveTowards(pos, target, moveSpeed * Time.deltaTime);
+    void SyncAnimator()
+    {
+        if (animator != null) animator.SetBool(isWalkingParam, agent.velocity.sqrMagnitude > 0.01f);
     }
 
     void TryChop()
     {
         if (pendingChop == null) return;
-        if (Vector2.Distance(transform.position, pendingChop.transform.position) > chopRange) return;
+        if (Vector3.Distance(transform.position, pendingChop.transform.position) > chopRange) return;
         if (Time.time - lastChopAt < chopCooldown) return;
         if (CarryWood >= carryCap) return;
 
@@ -99,7 +113,7 @@ public class PlayerController : MonoBehaviour
     void TryAttack()
     {
         if (pendingAttack == null || pendingAttack.IsDead) { pendingAttack = null; return; }
-        if (Vector2.Distance(transform.position, pendingAttack.transform.position) > attackRange) return;
+        if (Vector3.Distance(transform.position, pendingAttack.transform.position) > attackRange) return;
         if (Time.time - lastAttackAt < attackCooldown) return;
 
         lastAttackAt = Time.time;

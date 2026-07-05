@@ -13,10 +13,13 @@ public class RoomListUI : MonoBehaviour
 {
     public Transform contentParent;
     public GameObject roomCardPrefab;
+    public GuestCheckPanel guestCheckPanel;
 
     readonly List<RoomCardUI> cards = new List<RoomCardUI>();
 
     void OnEnable() => Refresh();
+
+    public void OpenGuestCheck(RoomUnit u) => guestCheckPanel.Open(u, this);
 
     public void Refresh()
     {
@@ -77,9 +80,9 @@ public class RoomCardUI : MonoBehaviour
         }
         else if (u.applicant != null)
         {
-            actionButtonLabel.text = "Kabul Et";
-            actionButton.interactable = u.rent <= u.applicant.maxRent;
-            actionButton.onClick.AddListener(() => { GameManager.Instance.AcceptBooking(unitId); list.Refresh(); });
+            actionButtonLabel.text = "Kimliğini İncele 🛂";
+            actionButton.interactable = true;
+            actionButton.onClick.AddListener(() => list.OpenGuestCheck(u));
         }
         else if (u.tenant != null)
         {
